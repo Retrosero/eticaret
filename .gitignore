@@ -75,4 +75,4 @@ packages/*/dist/
 out/
 
 # Logs from services
-*.pid
+*.pid.github/
