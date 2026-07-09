@@ -1,0 +1,44 @@
+{
+  "name": "@eticart/storefront",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Müşteri vitrin — Next.js App Router",
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "lint": "next lint",
+    "lint:fix": "next lint --fix",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rm -rf .next .turbo out"
+  },
+  "dependencies": {
+    "@eticart/config": "workspace:*",
+    "@eticart/observability": "workspace:*",
+    "@eticart/shared-types": "workspace:*",
+    "@eticart/tenant-context": "workspace:*",
+    "@eticart/ui": "workspace:*",
+    "@hookform/resolvers": "^5.4.0",
+    "next": "^15.0.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-hook-form": "^7.80.0",
+    "zod": "^3.23.8",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@eticart/eslint-config": "workspace:*",
+    "@eticart/tsconfig": "workspace:*",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "eslint": "^9.15.0",
+    "eslint-config-next": "^15.0.3",
+    "jsdom": "^29.1.1",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
+  }
+}

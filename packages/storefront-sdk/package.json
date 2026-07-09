@@ -1,0 +1,52 @@
+{
+  "name": "@eticart/storefront-sdk",
+  "version": "0.5.0",
+  "private": true,
+  "description": "Storefront SDK — tip güvenli, tenant-bilinçli veri erişim katmanı. Tema bileşenleri sadece bu SDK üzerinden tenant verisine erişir.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client/index.d.ts",
+      "default": "./dist/client/index.js"
+    },
+    "./types": {
+      "types": "./dist/types/index.d.ts",
+      "default": "./dist/types/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "lint": "eslint src --max-warnings=0",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "tsc",
+    "clean": "rm -rf dist .turbo *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@eticart/shared-types": "workspace:*",
+    "zod": "^3.23.8"
+  },
+  "peerDependencies": {
+    "react": "^18.3.0 || ^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": { "optional": true }
+  },
+  "devDependencies": {
+    "@eticart/eslint-config": "workspace:*",
+    "@eticart/tsconfig": "workspace:*",
+    "@types/react": "^18.3.12",
+    "eslint": "^9.15.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
+  }
+}

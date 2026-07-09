@@ -1,0 +1,53 @@
+{
+  "name": "@eticart/validation",
+  "version": "0.1.0",
+  "private": true,
+  "description": "API istek gövdesi ve sorgu parametreleri için Zod şemaları.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./common": {
+      "types": "./dist/common.d.ts",
+      "default": "./dist/common.js"
+    },
+    "./tenant": {
+      "types": "./dist/tenant/index.d.ts",
+      "default": "./dist/tenant/index.js"
+    },
+    "./product": {
+      "types": "./dist/product/index.d.ts",
+      "default": "./dist/product/index.js"
+    },
+    "./auth": {
+      "types": "./dist/auth/index.d.ts",
+      "default": "./dist/auth/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "lint": "eslint src --max-warnings=0",
+    "lint:fix": "eslint src --fix",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "tsc",
+    "clean": "rm -rf dist .turbo *.tsbuildinfo"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@eticart/eslint-config": "workspace:*",
+    "@eticart/tsconfig": "workspace:*",
+    "eslint": "^9.15.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
+  }
+}

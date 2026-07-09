@@ -1,0 +1,49 @@
+{
+  "name": "@eticart/shared-types",
+  "version": "0.1.0",
+  "private": true,
+  "description": "API kontratları, ortak tipler ve enum'lar. Backend + frontend buradan tüketir.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./tenant": {
+      "types": "./dist/tenant/index.d.ts",
+      "default": "./dist/tenant/index.js"
+    },
+    "./product": {
+      "types": "./dist/product/index.d.ts",
+      "default": "./dist/product/index.js"
+    },
+    "./order": {
+      "types": "./dist/order/index.d.ts",
+      "default": "./dist/order/index.js"
+    },
+    "./user": {
+      "types": "./dist/user/index.d.ts",
+      "default": "./dist/user/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "lint": "eslint src --max-warnings=0",
+    "lint:fix": "eslint src --fix",
+    "type-check": "tsc --noEmit",
+    "test": "echo \"shared-types: tip kütüphanesi, test yok\"",
+    "build": "tsc",
+    "clean": "rm -rf dist .turbo *.tsbuildinfo"
+  },
+  "devDependencies": {
+    "@eticart/config": "workspace:*",
+    "@eticart/eslint-config": "workspace:*",
+    "@eticart/tsconfig": "workspace:*",
+    "eslint": "^9.15.0",
+    "typescript": "^5.6.3"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "name": "faz0-multitenant-poc",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Faz 0 — Multi-tenant izolasyon kanıtı. ADR-001 referansı.",
+  "type": "module",
+  "scripts": {
+    "schema": "tsx scripts/run-sql.ts sql/0001_control_schema.sql sql/0001_app_schema.sql sql/0002_seed_control.sql",
+    "rls": "tsx scripts/run-sql.ts sql/rls-policies.sql",
+    "provision:tenant": "tsx scripts/provision-tenant.ts",
+    "test:isolation": "tsx scripts/isolation-test.ts",
+    "test:all": "npm run schema && npm run provision:tenant a && npm run provision:tenant b && npm run provision:tenant a && npm run test:isolation",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'lint placeholder (Faz 1 ESLint ayarı ile değişecek)'"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "pg": "^8.13.1",
+    "uuid": "^11.0.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/pg": "^8.11.10",
+    "@types/uuid": "^10.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

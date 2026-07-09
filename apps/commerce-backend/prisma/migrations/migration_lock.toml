@@ -1,0 +1,3 @@
+# Bu dosya Prisma migration'ların veritabanı sağlayıcı bilgisini tutar.
+# Manuel olarak değiştirmeyin.
+provider = "postgresql"

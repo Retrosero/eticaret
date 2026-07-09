@@ -1,0 +1,2558 @@
+// =====================================================================
+// Prisma şeması — Faz 4
+// commerce-backend (e-ticaret çekirdeği) için ortak veri modeli.
+//
+// ÖNEMLİ: ADR-001'e göre her tenant'ın kendi veritabanı vardır. Bu şema
+// tenant başına çoğullanır; Prisma "shadow database" üzerinden migration
+// üretir. Migration'lar `prisma/migrations/<version>/migration.sql`
+// altında durur.
+//
+// Çoğullama stratejisi:
+//   - `DATABASE_URL` runtime'da tenant'a göre değiştirilir (PG session RLS)
+//   - Tek şema, tenant_id composite unique'lar ile izolasyon sağlanır
+//   - İleride ayrı veritabanına geçiş için tablolar aynı kalır
+//
+// Tüm modeller `tenantId` kolonuna sahiptir ve composite unique index
+// tenant içi benzersizliği zorlar.
+// =====================================================================
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+  // ESM moduna uyum
+  moduleFormat  = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =====================================================================
+// 1. ÜRÜN
+// =====================================================================
+
+model Product {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String        @db.Uuid
+  slug             String
+  title            String
+  shortDescription String?       @db.Text
+  description      String?       @db.Text
+  brandId          String?       @db.Uuid
+  status           ProductStatus @default(draft)
+  // Fiziksel ürün bilgileri
+  weightGrams      Int?
+  // Vergi
+  taxCategoryId    String?       @db.Uuid
+  // Meta
+  publishedAt      DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  deletedAt        DateTime?
+
+  // İlişkiler
+  brand            Brand?                  @relation(fields: [brandId], references: [id])
+  taxCategory      TaxCategory?            @relation(fields: [taxCategoryId], references: [id])
+  variants         ProductVariant[]
+  options          ProductOption[]
+  attributeLinks   ProductAttributeLink[]
+  categories       ProductCategoryLink[]
+  collections      ProductCollectionLink[]
+  tags             ProductTagLink[]
+  media            ProductMedia[]
+  documents        ProductDocument[]
+  channels         ProductChannel[]
+  visibility       ProductVisibility[]
+  seo              ProductSEO?
+  auditEntries     ProductAudit[]
+  priceListEntries PriceListEntry[]
+  inventoryItems   InventoryItem[]
+
+  @@unique([tenantId, slug])
+  @@unique([tenantId, id])
+  @@index([tenantId, status])
+  @@index([tenantId, brandId])
+  @@map("products")
+}
+
+enum ProductStatus {
+  draft
+  active
+  inactive
+  archived
+  out_of_stock
+  discontinued
+}
+
+// =====================================================================
+// 2. ÜRÜN OPSİYONLARI VE VARYANTLARI
+// =====================================================================
+
+model ProductOption {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String @db.Uuid
+  productId String @db.Uuid
+  name      String // "Renk", "Beden"
+  position  Int    @default(0)
+
+  product Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
+  values  ProductOptionValue[]
+
+  @@unique([productId, name])
+  @@index([tenantId])
+  @@map("product_options")
+}
+
+model ProductOptionValue {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId String @db.Uuid
+  optionId String @db.Uuid
+  value    String // "Kırmızı", "M"
+  position Int    @default(0)
+
+  option       ProductOption               @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  variantLinks ProductVariantOptionValue[]
+
+  @@unique([optionId, value])
+  @@index([tenantId])
+  @@map("product_option_values")
+}
+
+model ProductVariant {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String       @db.Uuid
+  productId   String       @db.Uuid
+  sku         String
+  barcode     String? // EAN-13/UPC
+  gtin        String?
+  mpn         String? // Üretici kodu
+  name        String?
+  weightGrams Int?
+  // Decimal(15,4): minimum 0.0001 TRY/doğruluk; asla float
+  priceAmount Decimal      @default(0) @db.Decimal(15, 4)
+  currency    CurrencyCode @default(TRY)
+  // Stok bilgisi (özet; gerçek sayım InventoryItem üzerindendir)
+  stockQty    Int          @default(0)
+  reservedQty Int          @default(0)
+  position    Int          @default(0)
+  isDefault   Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  product        Product                     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  optionValues   ProductVariantOptionValue[]
+  inventoryItems InventoryItem[]
+
+  // Yalnız aktif varyantlar tenant-scoped unique
+  @@unique([tenantId, sku])
+  @@unique([tenantId, barcode])
+  @@index([productId])
+  @@map("product_variants")
+}
+
+// Varyant-Opsiyon-Değer ilişki tablosu (many-to-many)
+model ProductVariantOptionValue {
+  variantId String @db.Uuid
+  optionId  String @db.Uuid
+  valueId   String @db.Uuid
+  tenantId  String @db.Uuid
+
+  variant ProductVariant     @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  value   ProductOptionValue @relation(fields: [valueId], references: [id], onDelete: Cascade)
+
+  @@id([variantId, valueId])
+  @@index([tenantId])
+  @@map("product_variant_option_values")
+}
+
+enum CurrencyCode {
+  TRY
+  USD
+  EUR
+  GBP
+}
+
+// =====================================================================
+// 3. MARKA
+// =====================================================================
+
+model Brand {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String   @db.Uuid
+  slug           String
+  name           String
+  description    String?  @db.Text
+  logoKey        String? // Storage adapter anahtarı
+  websiteUrl     String?
+  // SEO
+  seoTitle       String?
+  seoDescription String?  @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  products Product[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@map("brands")
+}
+
+// =====================================================================
+// 4. KATEGORİ
+// =====================================================================
+
+model Category {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String   @db.Uuid
+  parentId       String?  @db.Uuid
+  slug           String
+  name           String
+  description    String?  @db.Text
+  imageKey       String?
+  bannerKey      String?
+  position       Int      @default(0)
+  isActive       Boolean  @default(true)
+  // Sayfa şablonu (Faz 5'te storefront tarafı kullanılır)
+  pageTemplate   String?
+  // SEO
+  seoTitle       String?
+  seoDescription String?  @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  parent   Category?             @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children Category[]            @relation("CategoryHierarchy")
+  products ProductCategoryLink[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId, parentId])
+  @@map("categories")
+}
+
+model ProductCategoryLink {
+  productId  String @db.Uuid
+  categoryId String @db.Uuid
+  tenantId   String @db.Uuid
+  position   Int    @default(0)
+
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([productId, categoryId])
+  @@index([tenantId, categoryId])
+  @@map("product_category_links")
+}
+
+// =====================================================================
+// 5. KOLEKSİYON
+// =====================================================================
+
+model Collection {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String    @db.Uuid
+  slug        String
+  name        String
+  description String?   @db.Text
+  imageKey    String?
+  isActive    Boolean   @default(true)
+  startsAt    DateTime?
+  endsAt      DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  products ProductCollectionLink[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@map("collections")
+}
+
+model ProductCollectionLink {
+  productId    String @db.Uuid
+  collectionId String @db.Uuid
+  tenantId     String @db.Uuid
+  position     Int    @default(0)
+
+  product    Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@id([productId, collectionId])
+  @@index([tenantId])
+  @@map("product_collection_links")
+}
+
+// =====================================================================
+// 6. ETİKET (TAG)
+// =====================================================================
+
+model ProductTag {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String   @db.Uuid
+  slug      String
+  name      String
+  createdAt DateTime @default(now())
+
+  products ProductTagLink[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@map("product_tags")
+}
+
+model ProductTagLink {
+  productId String @db.Uuid
+  tagId     String @db.Uuid
+  tenantId  String @db.Uuid
+
+  product Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tag     ProductTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([productId, tagId])
+  @@index([tenantId])
+  @@map("product_tag_links")
+}
+
+// =====================================================================
+// 7. DİNAMİK ÖZELLİKLER (ATTRIBUTES)
+// =====================================================================
+
+model ProductAttribute {
+  id           String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String               @db.Uuid
+  slug         String
+  name         String
+  type         ProductAttributeType
+  // select/multiselect için izin verilen seçenekler
+  options      Json                 @default("[]")
+  // Filtreleme için arama motoruna iletilecek mi?
+  isFilterable Boolean              @default(false)
+  // Ürün sayfasında gösterilecek mi?
+  isVisible    Boolean              @default(true)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  products ProductAttributeLink[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@map("product_attributes")
+}
+
+enum ProductAttributeType {
+  text
+  number
+  boolean
+  select
+  multiselect
+  color
+  date
+}
+
+model ProductAttributeLink {
+  productId   String @db.Uuid
+  attributeId String @db.Uuid
+  tenantId    String @db.Uuid
+  // number → JSON sayı, text → JSON string, select → ID listesi
+  value       Json
+
+  product   Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  attribute ProductAttribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+
+  @@id([productId, attributeId])
+  @@index([tenantId])
+  @@map("product_attribute_links")
+}
+
+// =====================================================================
+// 8. MEDYA VE DOSYALAR
+// =====================================================================
+
+model ProductMedia {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String   @db.Uuid
+  productId  String   @db.Uuid
+  // Storage anahtarı (örn. tenants/<id>/products/<sku>/cover.jpg)
+  storageKey String
+  mimeType   String
+  fileName   String
+  fileSize   Int
+  width      Int?
+  height     Int?
+  isPrimary  Boolean  @default(false)
+  position   Int      @default(0)
+  altText    String?
+  createdAt  DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, productId])
+  @@map("product_media")
+}
+
+model ProductDocument {
+  id         String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String              @db.Uuid
+  productId  String              @db.Uuid
+  storageKey String
+  mimeType   String
+  fileName   String
+  fileSize   Int
+  kind       ProductDocumentKind
+  title      String?
+  createdAt  DateTime            @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, productId])
+  @@map("product_documents")
+}
+
+enum ProductDocumentKind {
+  manual
+  certificate
+  warranty
+  safety_sheet
+  other
+}
+
+// =====================================================================
+// 9. DEPO VE STOK
+// =====================================================================
+
+model Warehouse {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String   @db.Uuid
+  code      String // benzersiz kısa kod: "MAIN", "ANK", "IST"
+  name      String
+  address   String?  @db.Text
+  city      String?
+  country   String?  @default("TR")
+  isActive  Boolean  @default(true)
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  locations      StockLocation[]
+  inventoryItems InventoryItem[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("warehouses")
+}
+
+model StockLocation {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String  @db.Uuid
+  warehouseId String  @db.Uuid
+  code        String // "A-01-03"
+  description String?
+  isActive    Boolean @default(true)
+
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+
+  @@unique([warehouseId, code])
+  @@index([tenantId])
+  @@map("stock_locations")
+}
+
+model InventoryItem {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String   @db.Uuid
+  productId         String   @db.Uuid
+  variantId         String?  @db.Uuid
+  warehouseId       String   @db.Uuid
+  // Toplam kullanılabilir adet (satılabilir)
+  onHand            Int      @default(0)
+  // Rezerve (sepet/sipariş bekleyen)
+  reserved          Int      @default(0)
+  // Eşik değer — uyarı için
+  lowStockThreshold Int      @default(5)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  product   Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant   ProductVariant?     @relation(fields: [variantId], references: [id])
+  warehouse Warehouse           @relation(fields: [warehouseId], references: [id])
+  movements InventoryMovement[]
+
+  @@unique([tenantId, variantId, warehouseId])
+  @@index([tenantId, productId])
+  @@map("inventory_items")
+}
+
+enum InventoryMovementKind {
+  inbound // giriş
+  outbound // çıkış
+  transfer // transfer (çıkış + giriş ayrı satırlar)
+  reservation // rezervasyon
+  release // rezervasyon çözme
+  adjustment // manuel düzeltme
+  return_in // iade girişi
+  return_out // iade çıkışı
+}
+
+// Append-only kayıt; geri alınmaz
+model InventoryMovement {
+  id              String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String                @db.Uuid
+  inventoryItemId String                @db.Uuid
+  kind            InventoryMovementKind
+  // Pozitif: giriş/rezervasyon, negatif: çıkış/çözme
+  quantity        Int
+  // Rezerve edilen/gelen referans (sepet ID, sipariş no, transfer kodu)
+  reference       String?
+  // Hareket nedeni (insan tarafından okunabilir)
+  reason          String?
+  // Hareketi yapan kullanıcı
+  actorId         String?               @db.Uuid
+  createdAt       DateTime              @default(now())
+
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id])
+
+  @@index([tenantId, inventoryItemId])
+  @@index([tenantId, reference])
+  @@map("inventory_movements")
+}
+
+// =====================================================================
+// 10. FİYATLANDIRMA
+// =====================================================================
+
+model PriceList {
+  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String           @db.Uuid
+  slug              String
+  name              String
+  description       String?          @db.Text
+  // B2C, B2B bayi grubu, müşteri grubu, kampanya
+  kind              PriceListKind
+  currency          CurrencyCode     @default(TRY)
+  isActive          Boolean          @default(true)
+  // Öncelik: yüksek sayı önce değerlendirilir
+  priority          Int              @default(0)
+  startsAt          DateTime?
+  endsAt            DateTime?
+  // Müşteri grubu kısıtı (Faz 8 — CustomerGroup.id)
+  customerGroupId   String?          @db.Uuid
+  // Bayiye özel override (CompanyAccount.id — birden fazla override olabilir)
+  companyOverrideOf CompanyAccount[] @relation("CompanyOverrides")
+  // Müşteri grubu ters ilişki
+  customerGroup     CustomerGroup?   @relation("PriceListCustomerGroup", fields: [customerGroupId], references: [id])
+  // Müşteri grubunun varsayılan listesi olarak işaretli olabilir (ters bakış)
+  defaultForGroups  CustomerGroup[]  @relation("DefaultPriceList")
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  entries PriceListEntry[]
+  rules   PriceRule[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@map("price_lists")
+}
+
+enum PriceListKind {
+  b2c_default
+  b2b_dealer
+  customer_group
+  campaign
+  channel
+}
+
+model PriceListEntry {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String    @db.Uuid
+  priceListId String    @db.Uuid
+  productId   String    @db.Uuid
+  variantId   String?
+  // Decimal(15,4): asla float
+  unitPrice   Decimal   @db.Decimal(15, 4)
+  // Geçerlilik tarihleri (liste düzeyinde değil, kalem düzeyinde)
+  startsAt    DateTime?
+  endsAt      DateTime?
+  minQty      Int       @default(1)
+
+  priceList PriceList @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, productId])
+  @@map("price_list_entries")
+}
+
+// Kademeli/koli indirimi kuralları
+model PriceRule {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String   @db.Uuid
+  priceListId     String   @db.Uuid
+  // Adet eşiği (>=)
+  minQty          Int
+  // İndirim yüzdesi (0-100) veya sabit tutar
+  discountPercent Decimal? @db.Decimal(5, 2)
+  discountFixed   Decimal? @db.Decimal(15, 4)
+  // "1 koli = 12 adet" gibi
+  caseQuantity    Int?
+
+  priceList PriceList @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, priceListId])
+  @@map("price_rules")
+}
+
+model TaxCategory {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String   @db.Uuid
+  slug      String
+  name      String
+  // Yüzde olarak KDV oranı (0-100). Decimal(5,2)
+  rate      Decimal  @db.Decimal(5, 2)
+  // Vergi dahil mi hariç mi gösterileceği tenant ayarıdır
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@map("tax_categories")
+}
+
+// =====================================================================
+// 11. SATIŞ KANALI VE GÖRÜNÜRLÜK
+// =====================================================================
+
+model SalesChannel {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String   @db.Uuid
+  slug      String
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products ProductChannel[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@map("sales_channels")
+}
+
+model ProductChannel {
+  productId  String  @db.Uuid
+  channelId  String  @db.Uuid
+  tenantId   String  @db.Uuid
+  isVisible  Boolean @default(true)
+  // Pazaryeri kanalı için harici ID (Trendyol, Hepsiburada vb.)
+  externalId String?
+
+  product Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  channel SalesChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@id([productId, channelId])
+  @@index([tenantId])
+  @@map("product_channels")
+}
+
+// Müşteri grubu görünürlüğü (B2B/B2C ayrımı) — CustomerGroup modeli
+// Faz 8'de genişletildi (aşağıya bak).
+model ProductVisibility {
+  productId       String  @db.Uuid
+  customerGroupId String  @db.Uuid
+  tenantId        String  @db.Uuid
+  isVisible       Boolean @default(true)
+
+  product       Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  customerGroup CustomerGroup @relation(fields: [customerGroupId], references: [id], onDelete: Cascade)
+
+  @@id([productId, customerGroupId])
+  @@index([tenantId])
+  @@map("product_visibility")
+}
+
+// =====================================================================
+// 12. SEO
+// =====================================================================
+
+model ProductSEO {
+  productId       String   @id @db.Uuid
+  tenantId        String   @db.Uuid
+  metaTitle       String?
+  metaDescription String?  @db.Text
+  canonicalUrl    String?
+  ogTitle         String?
+  ogDescription   String?  @db.Text
+  ogImageKey      String?
+  twitterCard     String?
+  // Schema.org JSON-LD üretimi için anahtar/değerler
+  schemaJson      Json     @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("product_seo")
+}
+
+// =====================================================================
+// 13. AUDIT GEÇMİŞİ
+// =====================================================================
+
+model ProductAudit {
+  id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String           @db.Uuid
+  productId     String           @db.Uuid
+  kind          ProductAuditKind
+  // Değişiklik öncesi/sonrası snapshot (JSON)
+  before        Json?
+  after         Json?
+  actorId       String?          @db.Uuid
+  correlationId String?
+  createdAt     DateTime         @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, productId])
+  @@index([tenantId, createdAt])
+  @@map("product_audits")
+}
+
+enum ProductAuditKind {
+  created
+  updated
+  status_changed
+  price_changed
+  stock_changed
+  media_changed
+  deleted
+}
+
+// =====================================================================
+// 14. FAZ 8 — B2B BAYİ MODÜLÜ
+// =====================================================================
+// B2C altyapısını bozmadan eklenen B2B bayi modelleri. Her bayi
+// CompanyAccount üzerinden izole edilir. Cross-bayi erişim yok.
+// =====================================================================
+
+// 14.1 Bayi Firma Hesabı (CompanyAccount) — birden fazla kullanıcı
+// taşıyabilen B2B firma kaydı.
+model CompanyAccount {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String              @db.Uuid
+  // Vergi numarası (VKN veya TCKN) — tenant içi benzersiz olmalı
+  taxId             String
+  // Firma adı (tüzel kişi)
+  legalName         String
+  // Ticari unvan / Marka adı (fatura başlığında kullanılır)
+  tradeName         String?
+  // Mersis / TOBB sicil no
+  mersisNo          String?
+  // Kep adresi
+  kepAddress        String?
+  // Müşteri grubu (B2B Standart, Gold, Silver vs.)
+  customerGroupId   String?             @db.Uuid
+  // Aktif ödeme koşulu (peşin, 30 gün vade vs.)
+  paymentTermId     String?             @db.Uuid
+  // Atanmış satış temsilcisi
+  salesRepId        String?             @db.Uuid
+  // Bayi durumu (aktif/pasif/askıya alınmış)
+  status            DealerCompanyStatus @default(active)
+  // Onay tarihi / red tarihi
+  approvedAt        DateTime?
+  rejectedAt        DateTime?
+  rejectionReason   String?             @db.Text
+  // Bakiye ve kredi limit cache (cache; gerçek hareket DealerTransaction'da)
+  currentBalance    Decimal             @default(0) @db.Decimal(15, 4)
+  creditLimit       Decimal             @default(0) @db.Decimal(15, 4)
+  // Tenant ayarı: limit aşımında davranış
+  creditLimitPolicy CreditLimitPolicy   @default(require_approval)
+  // Müşteri grubu b2b mi (tenant bazlı flag; CustomerGroup ile bağımlılık)
+  isB2B             Boolean             @default(true)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  customerGroup CustomerGroup?       @relation(fields: [customerGroupId], references: [id])
+  paymentTerm   PaymentTerm?         @relation(fields: [paymentTermId], references: [id])
+  salesRep      SalesRepresentative? @relation(fields: [salesRepId], references: [id])
+
+  users          DealerUser[]
+  branches       DealerBranch[]
+  priceOverrides PriceList[]          @relation("CompanyOverrides") // birden fazla override
+  creditHistory  CreditLimitHistory[]
+  transactions   DealerTransaction[]
+  orders         DealerOrder[]
+  quotes         Quote[]
+  approvalSteps  OrderApproval[]
+  quickTemplates QuickOrderTemplate[]
+  applications   DealerApplication[]
+
+  @@unique([tenantId, taxId])
+  @@index([tenantId, status])
+  @@index([tenantId, customerGroupId])
+  @@map("company_accounts")
+}
+
+enum DealerCompanyStatus {
+  active
+  passive
+  suspended
+  // Henüz onaylanmamış (henüz başvuru tamamlanmamış olabilir)
+  pending
+}
+
+// 14.2 Bayi Başvurusu — tenant admin onayına düşen ön-form
+model DealerApplication {
+  id                   String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId             String                  @db.Uuid
+  // Başvurulan firma bilgileri
+  taxId                String
+  legalName            String
+  tradeName            String?
+  // İletişim
+  contactName          String
+  contactEmail         String
+  contactPhone         String
+  // Adres
+  addressLine1         String
+  addressLine2         String?
+  city                 String
+  district             String?
+  postalCode           String?
+  country              String                  @default("TR")
+  // Belgeler (storage anahtarları)
+  tradeRegistryDocKey  String?
+  taxPlateDocKey       String?
+  signatureCircularKey String?
+  // Onaylayan/reddeden
+  status               DealerApplicationStatus @default(pending)
+  reviewerId           String?                 @db.Uuid
+  reviewedAt           DateTime?
+  rejectionReason      String?                 @db.Text
+  // Onay sonrası oluşturulan companyAccountId
+  companyAccountId     String?                 @db.Uuid
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+
+  companyAccount CompanyAccount? @relation(fields: [companyAccountId], references: [id])
+
+  @@index([tenantId, status])
+  @@index([tenantId, taxId])
+  @@map("dealer_applications")
+}
+
+enum DealerApplicationStatus {
+  pending
+  approved
+  rejected
+  withdrawn
+}
+
+// 14.3 Bayi Kullanıcısı (DealerUser) — CompanyAccount'a bağlı alt kullanıcı.
+// Standart User modeli ile 1-1 ilişki (id eşleşir). Roller bayi içi özeldir.
+model DealerUser {
+  id               String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String                 @db.Uuid
+  // Standart User.id ile eşleşir (cross-model referans)
+  authUserId       String                 @db.Uuid
+  companyAccountId String                 @db.Uuid
+  // Bayi içi rol
+  role             DealerRole             @default(dealer_buyer)
+  // Davet durumu
+  invitationStatus DealerInvitationStatus @default(active)
+  // Pasif kullanıcı (işten ayrıldı)
+  isActive         Boolean                @default(true)
+  deactivatedAt    DateTime?
+  // Ek izinler (JSON, tenant-bazlı)
+  customScopes     Json                   @default("[]")
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  companyAccount CompanyAccount @relation(fields: [companyAccountId], references: [id], onDelete: Cascade)
+  invites        DealerInvite[]
+
+  @@unique([tenantId, authUserId])
+  @@index([tenantId, companyAccountId])
+  @@map("dealer_users")
+}
+
+enum DealerRole {
+  dealer_admin // firma sahibi yetkisi
+  dealer_buyer // satın alma
+  dealer_accountant // muhasebe
+  dealer_approver // sipariş onayı
+}
+
+enum DealerInvitationStatus {
+  active
+  invited
+  expired
+  revoked
+}
+
+// 14.4 Bayi Davet Kaydı — kullanıcıya gönderilen davet e-postası
+model DealerInvite {
+  id               String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String     @db.Uuid
+  companyAccountId String     @db.Uuid
+  email            String
+  role             DealerRole @default(dealer_buyer)
+  // Token hash (parola davetinde kullanılır)
+  tokenHash        String
+  expiresAt        DateTime
+  acceptedAt       DateTime?
+  revokedAt        DateTime?
+  inviterId        String     @db.Uuid
+  createdAt        DateTime   @default(now())
+
+  dealerUser   DealerUser? @relation(fields: [dealerUserId], references: [id])
+  dealerUserId String?     @db.Uuid
+
+  @@index([tenantId, email])
+  @@index([tenantId, companyAccountId])
+  @@map("dealer_invites")
+}
+
+// 14.5 Bayi Şubesi / Teslimat Adresi
+model DealerBranch {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String   @db.Uuid
+  companyAccountId String   @db.Uuid
+  name             String // "Merkez", "Ankara Şube"
+  contactName      String?
+  contactPhone     String?
+  addressLine1     String
+  addressLine2     String?
+  city             String
+  district         String?
+  postalCode       String?
+  country          String   @default("TR")
+  isDefault        Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  companyAccount CompanyAccount @relation(fields: [companyAccountId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, companyAccountId])
+  @@map("dealer_branches")
+}
+
+// 14.6 Müşteri Grubu — Faz 4'te başlandı; burada genişletildi
+// CustomerGroup zaten Faz 4'te tanımlı; bu bölümde sadece ek alanlar.
+model CustomerGroup {
+  id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String            @db.Uuid
+  slug               String
+  name               String
+  // B2B mi B2C mi?
+  kind               CustomerGroupKind @default(b2c)
+  // Bayi listesi için kullanılacak mı
+  forDealers         Boolean           @default(false)
+  // Bayi grubuna özel fiyat listesi (1:1; explicit override)
+  defaultPriceListId String?           @db.Uuid
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  visibility       ProductVisibility[]
+  companies        CompanyAccount[]
+  customers        Customer[]
+  priceLists       PriceList[]         @relation("PriceListCustomerGroup")
+  defaultPriceList PriceList?          @relation("DefaultPriceList", fields: [defaultPriceListId], references: [id])
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@map("customer_groups")
+}
+
+enum CustomerGroupKind {
+  b2c
+  b2b_standard
+  b2b_gold
+  b2b_silver
+  b2b_platinum
+}
+
+// 14.7 Ödeme Koşulu (PaymentTerm) — peşin veya vadeli
+model PaymentTerm {
+  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String          @db.Uuid
+  slug               String
+  name               String // "Peşin", "30 Gün Vadeli"
+  kind               PaymentTermKind
+  // Gün cinsinden vade (peşin ise 0)
+  dueDays            Int             @default(0)
+  // Vade farkı yüzdesi (opsiyonel; vade farkı uygulanıyorsa 0-100)
+  latePaymentPercent Decimal?        @db.Decimal(5, 2)
+  isActive           Boolean         @default(true)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  companies CompanyAccount[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@map("payment_terms")
+}
+
+enum PaymentTermKind {
+  cash // Peşin
+  net_15 // 15 gün
+  net_30 // 30 gün
+  net_45 // 45 gün
+  net_60 // 60 gün
+  net_90 // 90 gün
+  custom // özel gün
+}
+
+// 14.8 Kredi Limiti Geçmişi — limit değişiklikleri denetim izi
+model CreditLimitHistory {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String             @db.Uuid
+  companyAccountId String             @db.Uuid
+  // Eski limit / yeni limit (Decimal)
+  previousLimit    Decimal            @db.Decimal(15, 4)
+  newLimit         Decimal            @db.Decimal(15, 4)
+  // Davranış değişikliği de olabilir
+  previousPolicy   CreditLimitPolicy?
+  newPolicy        CreditLimitPolicy?
+  // Değişiklik nedeni
+  reason           String?            @db.Text
+  actorId          String?            @db.Uuid
+  createdAt        DateTime           @default(now())
+
+  companyAccount CompanyAccount @relation(fields: [companyAccountId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, companyAccountId])
+  @@map("credit_limit_history")
+}
+
+enum CreditLimitPolicy {
+  block // limit aşılırsa sipariş bloğe
+  require_approval // yönetici onayına düş
+}
+
+// 14.9 Cari Hareket (DealerTransaction) — cari hesap hareket günlüğü
+model DealerTransaction {
+  id               String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String                @db.Uuid
+  companyAccountId String                @db.Uuid
+  kind             DealerTransactionKind
+  // Tutar (Decimal(15,4); pozitif: alacak, negatif: borç)
+  amount           Decimal               @db.Decimal(15, 4)
+  currency         CurrencyCode          @default(TRY)
+  // Referans no (sipariş no, ödeme no)
+  reference        String?
+  // Açıklama (insan-okur)
+  description      String?               @db.Text
+  // Vade tarihi (vadeli ödemede ne zaman ödenecek)
+  dueDate          DateTime?
+  // Ödeme/iptal tarihi
+  paidAt           DateTime?
+  actorId          String?               @db.Uuid
+  createdAt        DateTime              @default(now())
+
+  companyAccount CompanyAccount @relation(fields: [companyAccountId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, companyAccountId])
+  @@index([tenantId, reference])
+  @@index([tenantId, kind])
+  @@map("dealer_transactions")
+}
+
+enum DealerTransactionKind {
+  order // açık sipariş (borç)
+  payment // ödeme (alacak)
+  refund // iade (alacak)
+  adjustment // düzeltme (tenant tarafından)
+  credit_note // alacak dekontu
+}
+
+// 14.10 Bayi Siparişi — b2b sipariş. Stock sipariş ile sipariş ayrımı
+// için ayrı bir model kullanılabilir ama Faz 7 ile uyum için DealerOrder
+// sipariş tablosuna bakacak; burada sadece B2B özel alanlar.
+model DealerOrder {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String   @db.Uuid
+  companyAccountId String   @db.Uuid
+  // Faz 7 sipariş modeli ile eşleşen sipariş no (snapshot)
+  orderNumber      String // sipariş no (Faz 7 Order.orderNumber)
+  // Snapshot: sipariş onayından sonra fatura tarihi, vade tarihi
+  paymentTermId    String?  @db.Uuid
+  // Toplam tutar (snapshot)
+  totalAmount      Decimal  @db.Decimal(15, 4)
+  // Snapshot kayıt tarihi
+  createdAt        DateTime @default(now())
+
+  companyAccount CompanyAccount  @relation(fields: [companyAccountId], references: [id], onDelete: Cascade)
+  approvals      OrderApproval[]
+
+  @@unique([tenantId, orderNumber])
+  @@index([tenantId, companyAccountId])
+  @@map("dealer_orders")
+}
+
+// 14.11 Satış Temsilcisi (SalesRepresentative) — tenant iç kullanıcısı
+model SalesRepresentative {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String   @db.Uuid
+  // Temsilcinin bağlı olduğu tenant user
+  authUserId String   @db.Uuid
+  fullName   String
+  email      String
+  phone      String?
+  // Bölge/segment ataması
+  region     String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  companies CompanyAccount[]
+
+  @@unique([tenantId, authUserId])
+  @@index([tenantId])
+  @@map("sales_representatives")
+}
+
+// 14.12 Onay Akışı Tanımı (ApprovalWorkflow) — tenant tanımlı
+model ApprovalWorkflow {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String   @db.Uuid
+  name      String
+  // Tetik kuralı JSON: tutar aralığı, kategori, vs.
+  // { minAmount?, maxAmount?, categorySlug?, paymentTermSlug? }
+  rule      Json     @default("{}")
+  isDefault Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  steps  ApprovalStep[]
+  orders OrderApproval[]
+
+  @@index([tenantId])
+  @@map("approval_workflows")
+}
+
+// 14.13 Onay Adımı (ApprovalStep) — workflow'a bağlı, sıralı
+model ApprovalStep {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String   @db.Uuid
+  workflowId     String   @db.Uuid
+  stepNumber     Int
+  // Adım adı
+  name           String
+  // Kim onaylar: dealer_admin | tenant_admin | specific_role
+  approverRole   String
+  // Eğer belirli bir kullanıcı ise (opsiyonel)
+  approverUserId String?  @db.Uuid
+  // Tutar eşiği (adıma özel override)
+  minAmount      Decimal? @db.Decimal(15, 4)
+  maxAmount      Decimal? @db.Decimal(15, 4)
+
+  workflow ApprovalWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, workflowId])
+  @@map("approval_steps")
+}
+
+// 14.14 Sipariş Onay Kaydı (OrderApproval) — bekleyen/tamamlanan onay
+model OrderApproval {
+  id               String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String              @db.Uuid
+  dealerOrderId    String?             @db.Uuid
+  workflowId       String              @db.Uuid
+  companyAccountId String              @db.Uuid
+  // Faz 7 sipariş no (string olarak)
+  orderNumber      String
+  // Adım numarası (sıralı onay)
+  stepNumber       Int
+  status           OrderApprovalStatus @default(pending)
+  // Onaylayan / reddeden
+  actorId          String?             @db.Uuid
+  decidedAt        DateTime?
+  // Karar notu / red gerekçesi
+  note             String?             @db.Text
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  workflow       ApprovalWorkflow @relation(fields: [workflowId], references: [id])
+  dealerOrder    DealerOrder?     @relation(fields: [dealerOrderId], references: [id])
+  companyAccount CompanyAccount   @relation(fields: [companyAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, orderNumber, stepNumber])
+  @@index([tenantId, status])
+  @@index([tenantId, companyAccountId])
+  @@map("order_approvals")
+}
+
+enum OrderApprovalStatus {
+  pending
+  approved
+  rejected
+  skipped
+}
+
+// 14.15 Teklif (Quote) — bayi veya satış temsilcisi tarafından oluşturulan
+model Quote {
+  id                   String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId             String       @db.Uuid
+  companyAccountId     String       @db.Uuid
+  // Teklif numarası
+  quoteNumber          String
+  // Başlık
+  title                String
+  // Teklifi oluşturan
+  createdById          String       @db.Uuid
+  // Müşteri temsilcisi atadıysa
+  salesRepId           String?      @db.Uuid
+  // Teklif durumu
+  status               QuoteStatus  @default(draft)
+  // Snapshot: para birimi
+  currency             CurrencyCode @default(TRY)
+  // Toplam (Decimal(15,4))
+  totalAmount          Decimal      @db.Decimal(15, 4)
+  // Fiyat snapshot korunur (ürün fiyatları sonradan değişse bile geçerli)
+  priceSnapshotKey     String? // price_snapshot tablosuna FK
+  // Geçerlilik tarihi
+  validUntil           DateTime?
+  // Dönüşen sipariş no (varsa)
+  convertedOrderNumber String?
+  // Müşteri notu
+  customerNote         String?      @db.Text
+  // İç not
+  internalNote         String?      @db.Text
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  sentAt               DateTime?
+  acceptedAt           DateTime?
+  rejectedAt           DateTime?
+
+  companyAccount CompanyAccount       @relation(fields: [companyAccountId], references: [id], onDelete: Cascade)
+  items          QuoteItem[]
+  statusHistory  QuoteStatusHistory[]
+  priceSnapshot  PriceSnapshot?       @relation(fields: [priceSnapshotKey], references: [key])
+
+  @@unique([tenantId, quoteNumber])
+  @@index([tenantId, companyAccountId])
+  @@index([tenantId, status])
+  @@map("quotes")
+}
+
+enum QuoteStatus {
+  draft // taslak
+  sent // gönderildi
+  accepted // kabul edildi
+  rejected // reddedildi
+  expired // süresi doldu
+  converted // siparişe dönüştü
+}
+
+// 14.16 Teklif Kalemi (QuoteItem) — snapshot'lı
+model QuoteItem {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String   @db.Uuid
+  quoteId           String   @db.Uuid
+  productId         String   @db.Uuid
+  variantId         String?  @db.Uuid
+  // Miktar (kademeli/koli kuralları için)
+  quantity          Int
+  // Snapshot: kalem oluşturulduğu anda geçerli olan fiyat (Decimal)
+  unitPriceSnapshot Decimal  @db.Decimal(15, 4)
+  // İskonto (yüzde) snapshot
+  discountPercent   Decimal? @db.Decimal(5, 2)
+  discountFixed     Decimal? @db.Decimal(15, 4)
+  // Satır toplamı snapshot
+  lineTotal         Decimal  @db.Decimal(15, 4)
+  // Varyant seçenek etiketleri (snapshot)
+  variantLabel      String?
+  // Ürün başlığı snapshot
+  productTitle      String
+  skuSnapshot       String
+  createdAt         DateTime @default(now())
+
+  quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, quoteId])
+  @@map("quote_items")
+}
+
+// 14.17 Teklif Durum Geçmişi (QuoteStatusHistory) — denetim izi
+model QuoteStatusHistory {
+  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String       @db.Uuid
+  quoteId    String       @db.Uuid
+  fromStatus QuoteStatus?
+  toStatus   QuoteStatus
+  actorId    String?      @db.Uuid
+  note       String?      @db.Text
+  createdAt  DateTime     @default(now())
+
+  quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, quoteId])
+  @@map("quote_status_history")
+}
+
+// 14.18 Fiyat Snapshot (PriceSnapshot) — teklif/sipariş fiyat dökümü
+// Bir teklif veya sipariş oluşturulduğunda ilgili ürünlerin tüm fiyat
+// bilgileri burada JSONB olarak saklanır. Sonradan ürün fiyatı
+// değişse bile snapshot geçerli kalır.
+model PriceSnapshot {
+  key        String   @id
+  tenantId   String   @db.Uuid
+  // Snapshot verisi: ürün-varyant-fiyat listesi
+  data       Json // { items: [{ productId, variantId, sku, unitPrice, currency, ... }], capturedAt }
+  capturedAt DateTime @default(now())
+
+  quotes Quote[]
+
+  @@index([tenantId])
+  @@map("price_snapshots")
+}
+
+// 14.19 Hızlı Sipariş Şablonu (QuickOrderTemplate) — kayıtlı toplu sipariş kalıbı
+model QuickOrderTemplate {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String   @db.Uuid
+  companyAccountId String   @db.Uuid
+  name             String // "Haftalık Sipariş"
+  description      String?
+  // Şablon kalemleri JSON: [{ sku|barcode|productId, quantity }]
+  items            Json     @default("[]")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  companyAccount CompanyAccount @relation(fields: [companyAccountId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, companyAccountId])
+  @@map("quick_order_templates")
+}
+
+// 14.20 Bayi Ürün Görünürlük Override (DealerProductVisibility)
+// Ürünün CustomerGroup görünürlüğü üstüne bayi-bazlı override
+model DealerProductVisibility {
+  productId        String  @db.Uuid
+  companyAccountId String  @db.Uuid
+  tenantId         String  @db.Uuid
+  isVisible        Boolean @default(true)
+
+  @@id([productId, companyAccountId])
+  @@index([tenantId])
+  @@map("dealer_product_visibility")
+}
+
+// 14.21 Bayi Kategori Görünürlük Override
+model DealerCategoryVisibility {
+  categoryId       String  @db.Uuid
+  companyAccountId String  @db.Uuid
+  tenantId         String  @db.Uuid
+  isVisible        Boolean @default(true)
+
+  @@id([categoryId, companyAccountId])
+  @@index([tenantId])
+  @@map("dealer_category_visibility")
+}
+
+// =====================================================================
+// 15. FAZ 7 — SİPARİŞ, FATURA, İADE VE MÜŞTERİ PANELİ
+// =====================================================================
+// B2C altyapısı için ana modeller:
+//   - Order / OrderItem (snapshot ile)
+//   - OrderAddress, OrderShipping, OrderShipment, OrderStatusHistory
+//   - OrderNote (iç/dış), OrderInvoice, CancellationRequest, ReturnRequest
+//   - ReturnItem, ReturnReason (katalog), NotificationEvent, EmailLog
+// Tüm modeller tenantId ile izole; ADR-001.
+
+// 15.1 Müşteri (Customer) — B2C son müşteri profili.
+// Faz 3'teki User'dan ayrı tutulur: User kimlik/yetki, Customer ticari veri.
+model Customer {
+  id                    String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId              String          @db.Uuid
+  // User.id ile eşleşir (Faz 3)
+  authUserId            String          @db.Uuid
+  // Müşteri kodu (tenant-bazlı benzersiz görünür kod)
+  customerCode          String
+  // Profil bilgileri
+  fullName              String
+  email                 String
+  phone                 String?
+  // TC Kimlik (opsiyonel — fatura için)
+  identityNumber        String?
+  // Doğum tarihi (kampanyalar için)
+  birthDate             DateTime?
+  // Cinsiyet
+  gender                CustomerGender?
+  // Müşteri grubu (B2C / B2B)
+  customerGroupId       String?         @db.Uuid
+  // Onay/tercihler
+  emailVerified         Boolean         @default(false)
+  phoneVerified         Boolean         @default(false)
+  // Pazarlama izinleri
+  acceptsMarketingEmail Boolean         @default(false)
+  acceptsMarketingSms   Boolean         @default(false)
+  // KVKK
+  kvkkConsentGiven      Boolean         @default(false)
+  kvkkConsentDate       DateTime?
+  // Hesap durumu
+  status                CustomerStatus  @default(active)
+  lastLoginAt           DateTime?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  customerGroup      CustomerGroup?              @relation(fields: [customerGroupId], references: [id])
+  addresses          CustomerAddress[]
+  orders             Order[]
+  returns            ReturnRequest[]
+  cancellations      CancellationRequest[]
+  notes              CustomerNote[]
+  paymentTokens      CustomerPaymentToken[]
+  sessions           CustomerSession[]
+  notificationPrefs  NotificationPreference[]
+  dataExportRequests CustomerDataExportRequest[]
+  deletionRequests   CustomerDeletionRequest[]
+
+  @@unique([tenantId, customerCode])
+  @@unique([tenantId, authUserId])
+  @@index([tenantId, email])
+  @@index([tenantId, status])
+  @@map("customers")
+}
+
+enum CustomerGender {
+  male
+  female
+  other
+  prefer_not_to_say
+}
+
+enum CustomerStatus {
+  active
+  inactive
+  blocked
+  deleted
+}
+
+// 15.2 Müşteri Adresi (CustomerAddress) — kayıtlı adres defteri
+model CustomerAddress {
+  id                String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String      @db.Uuid
+  customerId        String      @db.Uuid
+  // Adres tipi
+  kind              AddressKind @default(shipping)
+  // Adres başlığı (Ev/İş)
+  label             String?
+  // Alıcı
+  fullName          String
+  // TC Kimlik (yurtdışı siparişler için ops.)
+  identityNumber    String?
+  // Telefon
+  phone             String
+  // Adres satırları
+  addressLine1      String
+  addressLine2      String?
+  city              String
+  district          String?
+  postalCode        String?
+  country           String      @default("TR")
+  // Vergi/şirket faturası için
+  companyName       String?
+  taxId             String?
+  taxOffice         String?
+  // Varsayılan bayraklar
+  isDefaultShipping Boolean     @default(false)
+  isDefaultBilling  Boolean     @default(false)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  customer       Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  shippingOrders Order[]  @relation("ShippingAddress")
+  billingOrders  Order[]  @relation("BillingAddress")
+
+  @@index([tenantId, customerId])
+  @@map("customer_addresses")
+}
+
+enum AddressKind {
+  shipping
+  billing
+  both
+}
+
+// 15.3 Müşteri Notu (CustomerNote) — yönetici tarafından müşteriye iliştirilen serbest notlar.
+model CustomerNote {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String   @db.Uuid
+  customerId String   @db.Uuid
+  // Dahili not — müşteri göremez
+  body       String   @db.Text
+  // Yazan kullanıcı
+  authorId   String?  @db.Uuid
+  createdAt  DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, customerId])
+  @@map("customer_notes")
+}
+
+// 15.4 Müşteri Ödeme Token'ı (CustomerPaymentToken) — kart token saklama
+// PCI-DSS kapsamı dışında; provider token saklanır.
+model CustomerPaymentToken {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String   @db.Uuid
+  customerId String   @db.Uuid
+  // Ödeme sağlayıcı kodu (iyzico, stripe, vs.)
+  provider   String
+  // Sağlayıcı token'ı
+  token      String
+  // Maskeli kart bilgisi (4444********1111)
+  cardMask   String
+  // Kart tipi
+  cardType   String?
+  // Son kullanma ay/yıl
+  expMonth   Int?
+  expYear    Int?
+  // Ad soyad
+  cardHolder String?
+  // Varsayılan mı?
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, customerId])
+  @@map("customer_payment_tokens")
+}
+
+// 15.5 Müşteri Oturum Kaydı (CustomerSession) — güvenlik paneli için
+model CustomerSession {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String    @db.Uuid
+  customerId   String    @db.Uuid
+  // User-Agent
+  userAgent    String?   @db.Text
+  // IP (maskelenmiş)
+  ipAddress    String?
+  // Konum (coarse)
+  location     String?
+  // Son aktivite
+  lastActiveAt DateTime  @default(now())
+  // Çıkış yapılmış mı?
+  revokedAt    DateTime?
+  // Aktif mi?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, customerId])
+  @@index([tenantId, lastActiveAt])
+  @@map("customer_sessions")
+}
+
+// 15.6 Bildirim Tercihi (NotificationPreference) — kanal başına detaylı kontrol
+model NotificationPreference {
+  id         String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String               @db.Uuid
+  customerId String               @db.Uuid
+  // Bildirim kategorisi
+  category   NotificationCategory
+  // Kanal
+  channel    NotificationChannel
+  enabled    Boolean              @default(true)
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, customerId, category, channel])
+  @@index([tenantId, customerId])
+  @@map("notification_preferences")
+}
+
+enum NotificationCategory {
+  order_updates // sipariş durumu
+  shipment // kargo
+  return_updates // iade
+  marketing // pazarlama
+  newsletter // bülten
+  price_alerts // fiyat düşüşü
+  stock_alerts // stok geldi
+  product_review // ürün yorum hatırlatma
+  security // güvenlik bildirimleri
+}
+
+enum NotificationChannel {
+  email
+  sms
+  push
+}
+
+// 15.7 Veri Dışa Aktarma Talebi (CustomerDataExportRequest) — KVKK
+model CustomerDataExportRequest {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String            @db.Uuid
+  customerId      String            @db.Uuid
+  // Talep durumu
+  status          DataRequestStatus @default(pending)
+  // Hazırlanan export dosya anahtarı (storage)
+  storageKey      String?
+  // Hazırlanma tarihi
+  readyAt         DateTime?
+  // Son kullanma tarihi (export link)
+  expiresAt       DateTime?
+  // Red gerekçesi
+  rejectionReason String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, customerId])
+  @@index([tenantId, status])
+  @@map("customer_data_export_requests")
+}
+
+// 15.8 Hesap Silme Talebi (CustomerDeletionRequest) — KVKK
+model CustomerDeletionRequest {
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String            @db.Uuid
+  customerId        String            @db.Uuid
+  // Talep durumu
+  status            DataRequestStatus @default(pending)
+  // Onay token (e-posta ile gelen)
+  confirmationToken String?
+  // Silinme tarihi (grace period bitişi)
+  scheduledFor      DateTime?
+  // Tamamlanma tarihi
+  completedAt       DateTime?
+  // Red gerekçesi
+  rejectionReason   String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, customerId])
+  @@index([tenantId, status])
+  @@map("customer_deletion_requests")
+}
+
+enum DataRequestStatus {
+  pending
+  processing
+  ready
+  completed
+  rejected
+  failed
+}
+
+// 15.9 Sipariş (Order) — ana sipariş başlık kaydı.
+model Order {
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String        @db.Uuid
+  // Tenant-bazlı sıralı sipariş numarası (T{id}-{YYYYMMDD}-{seq})
+  orderNumber       String
+  // Müşteri (B2C) veya B2C anonim misafir
+  customerId        String?       @db.Uuid
+  // Satış kanalı (web, mobile, marketplace, vs.)
+  channel           String        @default("web")
+  // Para birimi
+  currency          CurrencyCode  @default(TRY)
+  // Durum
+  status            OrderStatus   @default(pending)
+  // Ödeme durumu (snapshot)
+  paymentStatus     PaymentStatus @default(pending)
+  // Toplam tutarlar (Decimal(15,4) — kuruş hassasiyetinden büyük değilse yine de double hassasiyet güvenliği)
+  subtotalAmount    Decimal       @db.Decimal(15, 4)
+  taxTotal          Decimal       @default(0) @db.Decimal(15, 4)
+  shippingTotal     Decimal       @default(0) @db.Decimal(15, 4)
+  discountTotal     Decimal       @default(0) @db.Decimal(15, 4)
+  grandTotal        Decimal       @db.Decimal(15, 4)
+  refundedAmount    Decimal       @default(0) @db.Decimal(15, 4)
+  // Kupon bilgisi
+  couponCode        String?
+  couponDiscount    Decimal       @default(0) @db.Decimal(15, 4)
+  // Müşteri notu (sipariş aşamasında iletilen)
+  customerNote      String?       @db.Text
+  // Snapshot: ürün veya sepet bilgilerinin JSON hali (geriye uyumluluk)
+  productSnapshot   Json?         @default("{}")
+  // Adresler
+  shippingAddressId String?       @db.Uuid
+  billingAddressId  String?       @db.Uuid
+  // Ödeme sağlayıcı kodu (referans, detay payment modülünde)
+  paymentProvider   String?
+  paymentReference  String?
+  paidAt            DateTime?
+  // Sipariş zaman damgaları
+  placedAt          DateTime? // ödeme onayı sonrası
+  confirmedAt       DateTime?
+  preparingAt       DateTime?
+  shippedAt         DateTime?
+  deliveredAt       DateTime?
+  cancelledAt       DateTime?
+  refundedAt        DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  deletedAt         DateTime?
+
+  customer        Customer?            @relation(fields: [customerId], references: [id])
+  shippingAddress CustomerAddress?     @relation("ShippingAddress", fields: [shippingAddressId], references: [id])
+  billingAddress  CustomerAddress?     @relation("BillingAddress", fields: [billingAddressId], references: [id])
+  items           OrderItem[]
+  history         OrderStatusHistory[]
+  notes           OrderNote[]
+  shipments       OrderShipment[]
+  invoices        OrderInvoice[]
+  refundRecords   RefundRecord[]
+  cancellation    CancellationRequest?
+  returns         ReturnRequest[]
+
+  @@unique([tenantId, orderNumber])
+  @@index([tenantId, customerId])
+  @@index([tenantId, status])
+  @@index([tenantId, paymentStatus])
+  @@index([tenantId, createdAt])
+  @@map("orders")
+}
+
+// Sipariş durumu yaşam döngüsü (state machine). 15 değer.
+enum OrderStatus {
+  pending // ödeme bekleniyor
+  awaiting_payment // ödeme başlatıldı
+  paid // ödeme alındı
+  confirmed // sipariş onaylandı
+  preparing // hazırlanıyor
+  partially_shipped // kısmen kargoya verildi
+  shipped // kargoya verildi
+  delivered // teslim edildi
+  cancellation_requested // iptal talebi alındı
+  cancelled // iptal edildi
+  return_requested // iade talebi alındı
+  returned // iade edildi
+  partially_refunded // kısmen iade edildi
+  refunded // tamamen iade edildi
+}
+
+// Ödeme durumu.
+enum PaymentStatus {
+  pending
+  authorized
+  captured
+  failed
+  expired
+  refunded
+  partially_refunded
+}
+
+// 15.10 Sipariş Kalemi (OrderItem) — snapshot'lı.
+// Ürün bilgisi sipariş anında dondurulur; sonradan ürün güncellense bile bozulmaz.
+model OrderItem {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String   @db.Uuid
+  orderId            String   @db.Uuid
+  // Snapshot referansı (ürün/varyant orijinal id)
+  productId          String   @db.Uuid
+  variantId          String?  @db.Uuid
+  // Snapshot alanları — ürün sonradan değişse bile bunlar korunur
+  productTitle       String
+  variantTitle       String?
+  skuSnapshot        String
+  // Opsiyon etiketleri snapshot
+  variantOptionsJson Json     @default("{}")
+  // Görsel snapshot anahtarı
+  imageKey           String?
+  // Miktar
+  quantity           Int
+  // Birim fiyat (Decimal)
+  unitPrice          Decimal  @db.Decimal(15, 4)
+  // İskonto (yüzde veya sabit tutar)
+  discountPercent    Decimal? @db.Decimal(5, 2)
+  discountFixed      Decimal? @db.Decimal(15, 4)
+  // Vergi (KDV) bilgisi snapshot
+  taxRate            Decimal? @db.Decimal(5, 2)
+  taxAmount          Decimal? @db.Decimal(15, 4)
+  // Satır toplamı (miktar x birim fiyat - iskonto)
+  lineTotal          Decimal  @db.Decimal(15, 4)
+  // İade edilebilirlik durumu (sipariş tamamlandıysa true)
+  isReturnable       Boolean  @default(true)
+  // İade edilen miktar (kısmi iade takibi)
+  returnedQty        Int      @default(0)
+  // Hediye paketi mi?
+  isGift             Boolean  @default(false)
+  giftMessage        String?
+  // Sıralama
+  position           Int      @default(0)
+  createdAt          DateTime @default(now())
+
+  order       Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  returnItems ReturnItem[]
+
+  @@index([tenantId, orderId])
+  @@index([tenantId, productId])
+  @@map("order_items")
+}
+
+// 15.11 Sipariş Durum Geçmişi (OrderStatusHistory) — tam denetim izi
+model OrderStatusHistory {
+  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String       @db.Uuid
+  orderId       String       @db.Uuid
+  fromStatus    OrderStatus?
+  toStatus      OrderStatus
+  // Değişikliği yapan kullanıcı (sistem/CRM/admin)
+  actorId       String?      @db.Uuid
+  // Etiket: payment.success, admin.manual, system.auto, webhook.shipment vs.
+  source        String       @default("system")
+  // Ek not
+  note          String?      @db.Text
+  // Correlation ID
+  correlationId String?
+  createdAt     DateTime     @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, orderId])
+  @@index([tenantId, createdAt])
+  @@map("order_status_history")
+}
+
+// 15.12 Sipariş Notu (OrderNote) — yönetici iç/dış notları.
+// Görünürlük: internal=true yalnızca admin; internal=false müşteri de görebilir.
+model OrderNote {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String   @db.Uuid
+  orderId    String   @db.Uuid
+  body       String   @db.Text
+  // Dahili not mu?
+  isInternal Boolean  @default(true)
+  authorId   String?  @db.Uuid
+  authorName String?
+  createdAt  DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, orderId])
+  @@map("order_notes")
+}
+
+// 15.13 Kargo Sevkiyatı (OrderShipment) — parçalı sevkiyat desteği.
+// Bir sipariş birden fazla kargo ile gönderilebilir.
+model OrderShipment {
+  id                  String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId            String         @db.Uuid
+  orderId             String         @db.Uuid
+  // Kargo sağlayıcısı kodu (yurtici, aras, mng, ups, vs.)
+  carrier             String
+  // Takip numarası
+  trackingNumber      String?
+  // Takip URL'si (provider specific)
+  trackingUrl         String?
+  // Sevkiyat durumu
+  status              ShipmentStatus @default(preparing)
+  // Toplam kalem sayısı
+  itemCount           Int            @default(0)
+  // Gönderim tarihi
+  shippedAt           DateTime?
+  // Tahmini teslim tarihi
+  estimatedDeliveryAt DateTime?
+  // Teslim tarihi
+  deliveredAt         DateTime?
+  // Desi/ağırlık
+  weightGrams         Int?
+  // Kargo ücreti snapshot
+  shippingCost        Decimal?       @db.Decimal(15, 4)
+  // Ham webhook payload (debug amaçlı)
+  webhookPayload      Json?          @default("{}")
+  // Geri dönen sağlayıcı referansı
+  externalId          String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  order          Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  trackingEvents ShipmentTrackingEvent[]
+  items          OrderShipmentItem[]
+
+  @@index([tenantId, orderId])
+  @@index([tenantId, trackingNumber])
+  @@map("order_shipments")
+}
+
+enum ShipmentStatus {
+  preparing // hazırlanıyor
+  handed_over // kargoya verildi
+  in_transit // yolda
+  out_for_delivery // dağıtımda
+  delivered // teslim edildi
+  delivery_failed // teslim başarısız
+  returned_to_sender // iade geldi
+  cancelled // iptal
+}
+
+// 15.14 Sevkiyat Kargo Olayı (ShipmentTrackingEvent) — webhook ile beslenen olay akışı
+model ShipmentTrackingEvent {
+  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String         @db.Uuid
+  shipmentId  String         @db.Uuid
+  // Olay durumu
+  status      ShipmentStatus
+  // Lokasyon (metin olarak)
+  location    String?
+  // Açıklama
+  description String?        @db.Text
+  // Olay zamanı (provider'dan geldiği şekliyle)
+  occurredAt  DateTime
+  // Ham payload
+  rawPayload  Json           @default("{}")
+  createdAt   DateTime       @default(now())
+
+  shipment OrderShipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, shipmentId])
+  @@index([tenantId, occurredAt])
+  @@map("shipment_tracking_events")
+}
+
+// 15.15 Sevkiyat Kalem İlişkisi — parçalı sevkiyatta hangi kalem hangi kargoda
+model OrderShipmentItem {
+  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String @db.Uuid
+  shipmentId  String @db.Uuid
+  orderItemId String @db.Uuid
+  // Bu sevkiyattaki miktar (kalemden daha az olabilir)
+  quantity    Int
+
+  shipment OrderShipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@unique([shipmentId, orderItemId])
+  @@index([tenantId])
+  @@map("order_shipment_items")
+}
+
+// 15.16 İptal Talebi (CancellationRequest) — müşteri veya admin başlatabilir
+model CancellationRequest {
+  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String             @db.Uuid
+  orderId           String             @unique @db.Uuid
+  // Talebi açan (customer veya admin user)
+  customerId        String?            @db.Uuid
+  requestedByUserId String?            @db.Uuid
+  // Talep nedeni
+  reason            String
+  // Açıklama
+  description       String?            @db.Text
+  // Durum
+  status            CancellationStatus @default(pending)
+  // Karar veren admin
+  decidedById       String?            @db.Uuid
+  decidedAt         DateTime?
+  // Karar gerekçesi
+  decisionNote      String?            @db.Text
+  // Sonuç: iade edilen tutar (eğer ödeme alındıysa)
+  refundAmount      Decimal?           @db.Decimal(15, 4)
+  // Stok geri alma durumu
+  stockRestored     Boolean            @default(false)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  order    Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  customer Customer? @relation(fields: [customerId], references: [id])
+
+  @@index([tenantId, status])
+  @@index([tenantId, orderId])
+  @@index([tenantId, customerId])
+  @@map("cancellation_requests")
+}
+
+enum CancellationStatus {
+  pending
+  approved
+  rejected
+  withdrawn
+  expired
+}
+
+// 15.17 İade Nedeni Kataloğu (ReturnReason) — yönetici tarafından tanımlı
+model ReturnReason {
+  id          String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String               @db.Uuid
+  slug        String
+  name        String
+  description String?
+  category    ReturnReasonCategory
+  // Sıralama (UI)
+  position    Int                  @default(0)
+  // Aktif mi?
+  isActive    Boolean              @default(true)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  requests   ReturnRequest[]
+  ReturnItem ReturnItem[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@map("return_reasons")
+}
+
+enum ReturnReasonCategory {
+  product_defective // ürün ayıplı
+  wrong_product // yanlış ürün
+  damaged_in_transit // kargoda hasar
+  not_as_described // tanıma uygun değil
+  size_fit_issue // beden/uyum sorunu
+  change_of_mind // vazgeçme
+  late_delivery // geç teslimat
+  other // diğer
+}
+
+// 15.18 İade Talebi (ReturnRequest) — ana kayıt
+model ReturnRequest {
+  id                     String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId               String       @db.Uuid
+  orderId                String       @db.Uuid
+  // RMA numarası (tenant-bazlı benzersiz)
+  rmaNumber              String
+  // Açan müşteri
+  customerId             String?      @db.Uuid
+  // Talep eden kullanıcı
+  requestedByUserId      String?      @db.Uuid
+  // İade nedeni
+  reasonId               String?      @db.Uuid
+  // Serbest açıklama
+  description            String?      @db.Text
+  // Durum
+  status                 ReturnStatus @default(requested)
+  // Tam/kısmi
+  isPartial              Boolean      @default(false)
+  // Toplam iade tutarı (Decimal)
+  refundAmount           Decimal      @db.Decimal(15, 4)
+  // Para birimi
+  currency               CurrencyCode @default(TRY)
+  // Fotoğraflar (storage anahtarları JSON array)
+  photoKeys              Json         @default("[]")
+  // Müşteri iade kargo bilgisi (kendi kargoya verirse)
+  customerCarrier        String?
+  customerTrackingNumber String?
+  // Mağaza geri dönüş kargosu
+  returnCarrier          String?
+  returnTrackingNumber   String?
+  returnLabelUrl         String?
+  // Karar veren
+  decidedById            String?      @db.Uuid
+  decidedAt              DateTime?
+  decisionNote           String?      @db.Text
+  // İade alındı mı?
+  receivedAt             DateTime?
+  // Refund tamamlandı mı?
+  refundedAt             DateTime?
+  // Ürünler mağazaya geri döndüğünde stok geri alındı mı?
+  stockRestored          Boolean      @default(false)
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+
+  order    Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  customer Customer?     @relation(fields: [customerId], references: [id])
+  reason   ReturnReason? @relation(fields: [reasonId], references: [id])
+  items    ReturnItem[]
+
+  @@unique([tenantId, rmaNumber])
+  @@index([tenantId, orderId])
+  @@index([tenantId, customerId])
+  @@index([tenantId, status])
+  @@map("return_requests")
+}
+
+enum ReturnStatus {
+  requested // talep alındı
+  approved // onaylandı
+  rejected // reddedildi
+  in_transit // yolda (geri dönüş)
+  received // teslim alındı
+  refunded // iade tamamlandı
+  closed // kapatıldı
+}
+
+// 15.19 İade Kalemi (ReturnItem) — iade edilen her kalem (kısmi iade takibi)
+model ReturnItem {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String   @db.Uuid
+  returnRequestId String   @db.Uuid
+  orderItemId     String   @db.Uuid
+  // İade edilen miktar
+  quantity        Int
+  // İade nedeni (kalem bazlı override; opsiyonel)
+  reasonId        String?  @db.Uuid
+  // Bu kalem için iade edilecek tutar (decimal)
+  lineRefund      Decimal  @db.Decimal(15, 4)
+  // Ek açıklama
+  note            String?
+  // Fotoğraflar (kalem bazlı)
+  photoKeys       Json     @default("[]")
+  createdAt       DateTime @default(now())
+
+  returnRequest ReturnRequest @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+  orderItem     OrderItem     @relation(fields: [orderItemId], references: [id])
+  reason        ReturnReason? @relation(fields: [reasonId], references: [id])
+
+  @@index([tenantId, returnRequestId])
+  @@map("return_items")
+}
+
+// 15.20 Refund Kaydı (RefundRecord) — gerçek iade hareketi (sağlayıcı ödemeleri).
+// Birden fazla refund olabilir: tam iade, kısmi, değişim vs.
+model RefundRecord {
+  id                    String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId              String       @db.Uuid
+  orderId               String       @db.Uuid
+  // Refere edilen return id (varsa)
+  returnRequestId       String?      @db.Uuid
+  // Refere edilen cancellation id (varsa)
+  cancellationRequestId String?      @db.Uuid
+  // Tutar
+  amount                Decimal      @db.Decimal(15, 4)
+  currency              CurrencyCode @default(TRY)
+  // Durum
+  status                RefundStatus @default(pending)
+  // Sağlayıcı kodu (iyzico, stripe, manual, ...)
+  provider              String
+  // Sağlayıcı referans numarası
+  providerRef           String?
+  // Tamamlanma zamanı
+  completedAt           DateTime?
+  // Hata mesajı (başarısızsa)
+  errorMessage          String?      @db.Text
+  // İadeyi yapan admin
+  initiatedById         String?      @db.Uuid
+  // Not
+  note                  String?      @db.Text
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, orderId])
+  @@index([tenantId, status])
+  @@index([tenantId, provider])
+  @@map("refund_records")
+}
+
+enum RefundStatus {
+  pending
+  processing
+  completed
+  failed
+  cancelled
+}
+
+// 15.21 Sipariş Faturası (OrderInvoice) — fatura kaydı
+// PDF ya da e-fatura adaptör çıktısı burada tutulur.
+model OrderInvoice {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String         @db.Uuid
+  orderId          String         @db.Uuid
+  // Fatura numarası (tenant-bazlı sıralı)
+  invoiceNumber    String
+  // Tür: pdf (manuel) | e_fatura | e_arsiv
+  invoiceType      InvoiceType    @default(pdf)
+  // Para birimi
+  currency         CurrencyCode   @default(TRY)
+  // Tutar (snapshot)
+  totalAmount      Decimal        @db.Decimal(15, 4)
+  // KDV toplam
+  taxTotal         Decimal        @db.Decimal(15, 4)
+  // PDF storage anahtarı (R2/S3)
+  pdfStorageKey    String?
+  // E-fatura UUID (sağlayıcı tarafından atanan)
+  externalUuid     String?
+  // E-fatura adaptör kodu (foriba, logo, mikro, ...)
+  eFaturaProvider  String?
+  // E-fatura durumu
+  eInvoiceStatus   EInvoiceStatus @default(not_required)
+  // Müşteri bilgileri (snapshot)
+  customerSnapshot Json           @default("{}")
+  // Firma bilgileri (snapshot)
+  companySnapshot  Json           @default("{}")
+  // Satırlar snapshot (kalemler)
+  itemsSnapshot    Json           @default("[]")
+  // Fatura tarihi
+  issuedAt         DateTime       @default(now())
+  // Vade tarihi (B2B faturası ise)
+  dueDate          DateTime?
+  // Oluşturan admin
+  createdById      String?        @db.Uuid
+  // Durum
+  status           InvoiceStatus  @default(draft)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, invoiceNumber])
+  @@index([tenantId, orderId])
+  @@index([tenantId, status])
+  @@map("order_invoices")
+}
+
+enum InvoiceType {
+  pdf // Manuel PDF
+  e_fatura // E-Fatura
+  e_arsiv // E-Arşiv
+  e_irsaliye // E-İrsaliye
+}
+
+enum InvoiceStatus {
+  draft
+  issued
+  cancelled
+  paid
+  overdue
+}
+
+enum EInvoiceStatus {
+  not_required // e-fatura gerekmeyen durum
+  pending // adaptöre gönderildi, yanıt bekleniyor
+  sent // GİB'e gönderildi
+  accepted // alıcı tarafından kabul edildi
+  rejected // reddedildi
+  error // hata oluştu
+}
+
+// 15.22 Sıralı Sayaç Tablosu (OrderSequence) — tenant-bazlı günlük sequence sayaç.
+// Sipariş numarası üretiminde atomik artış için kullanılır.
+model OrderSequence {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String   @db.Uuid
+  // Tarih (YYYY-MM-DD formatında gün bazlı) — günlük reset
+  day       String // "2026-07-02"
+  // Son kullanılan değer
+  lastValue Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, day])
+  @@map("order_sequences")
+}
+
+// 15.23 Invoice Sequence (günlük veya tenant-bazlı fatura sayaç)
+model InvoiceSequence {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String   @db.Uuid
+  // Yıl
+  year      Int
+  // Son değer
+  lastValue Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, year])
+  @@map("invoice_sequences")
+}
+
+// 15.24 Bildirim Olayı (NotificationEvent) — event-driven bildirim kuyruğu
+// Sipariş yaşam döngüsü olayları burada persist edilir; kuyruk buradan beslenir.
+model NotificationEvent {
+  id             String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String                  @db.Uuid
+  // Olay tipi
+  eventType      String
+  // Aggregate tipi (order, return, ...)
+  aggregateType  String
+  // Aggregate id
+  aggregateId    String
+  // Veri (JSON payload)
+  payload        Json                    @default("{}")
+  // İşlenme durumu
+  status         NotificationEventStatus @default(queued)
+  // Denenen kuyruk adı
+  queueName      String?
+  // Tekrar deneme sayısı
+  attempts       Int                     @default(0)
+  // Hata (varsa)
+  lastError      String?                 @db.Text
+  // Gönderim zaman damgaları
+  processedAt    DateTime?
+  failedAt       DateTime?
+  // Idempotency anahtarı (event id dışında ek koruma)
+  idempotencyKey String?
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+
+  emailLogs EmailLog[]
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, eventType])
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+  @@map("notification_events")
+}
+
+enum NotificationEventStatus {
+  queued
+  processing
+  completed
+  failed
+  dead_lettered
+}
+
+// 15.25 E-Posta Log (EmailLog) — gönderilmiş veya denenmiş mailler
+model EmailLog {
+  id                  String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId            String      @db.Uuid
+  notificationEventId String?     @db.Uuid
+  // Alıcı
+  toEmail             String
+  ccEmails            Json        @default("[]")
+  bccEmails           Json        @default("[]")
+  // Konu
+  subject             String
+  // Şablon kodu
+  templateCode        String?
+  // HTML gövde snapshot (debug)
+  htmlSnapshot        String?     @db.Text
+  // Sağlayıcı kodu
+  provider            String
+  // Sağlayıcı yanıt kimliği
+  providerMessageId   String?
+  // Sağlayıcı türü (smtp, ses, sendgrid, ...)
+  providerType        String
+  // Gönderim sonucu
+  status              EmailStatus @default(queued)
+  // Hata
+  errorMessage        String?     @db.Text
+  // Açılma/tıklama izleme (opsiyonel)
+  openedAt            DateTime?
+  clickedAt           DateTime?
+  // Gönderim zamanı
+  sentAt              DateTime?
+  // Toplam deneme sayısı
+  attempts            Int         @default(0)
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  notificationEvent NotificationEvent? @relation(fields: [notificationEventId], references: [id])
+
+  @@index([tenantId, status])
+  @@index([tenantId, toEmail])
+  @@index([tenantId, createdAt])
+  @@map("email_logs")
+}
+
+enum EmailStatus {
+  queued
+  sent
+  delivered
+  bounced
+  failed
+  dead_lettered
+}
+
+// 15.26 Durum Makinesi Kuralı Override (OrderStatusMachineRule) — tenant bazlı override.
+// Varsayılan kurallar kod tarafında; tenant özel override burada tutulur.
+model OrderStatusMachineRule {
+  id           String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String      @db.Uuid
+  // Geçerli FROM durumu
+  fromStatus   OrderStatus
+  // Geçerli TO durumu
+  toStatus     OrderStatus
+  // Bu geçişe izin var mı (true) yoksa yasak mı (false)?
+  allowed      Boolean     @default(true)
+  // Geçiş için gereken rol (admin, owner)
+  requiredRole String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@unique([tenantId, fromStatus, toStatus])
+  @@index([tenantId])
+  @@map("order_status_machine_rules")
+}
+
+// ============================================================================
+// 16. CART (Sepet) — Faz 6 Sepet/Checkout kapsamında
+// ============================================================================
+
+enum CartStatus {
+  ACTIVE
+  ABANDONED
+  CONVERTED
+  EXPIRED
+}
+
+enum CartItemKind {
+  PRODUCT
+  GIFT_CARD
+  CUSTOM
+}
+
+model Cart {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String     @db.Uuid
+  // Opsiyonel müşteri (anonim sepet için null olabilir)
+  customerId   String?    @db.Uuid
+  // Session veya kullanıcıya bağlı benzersiz anahtar (anonim için zorunlu)
+  sessionKey   String?
+  // Para birimi
+  currency     String     @default("TRY") @db.VarChar(8)
+  // Durum
+  status       CartStatus @default(ACTIVE)
+  // Toplam (decimal kuruş)
+  subtotal     Decimal    @default(0) @db.Decimal(15, 4)
+  // İndirim
+  discountTotal Decimal   @default(0) @db.Decimal(15, 4)
+  // Kargo
+  shippingTotal Decimal   @default(0) @db.Decimal(15, 4)
+  // Vergi
+  taxTotal      Decimal   @default(0) @db.Decimal(15, 4)
+  // Genel toplam
+  grandTotal    Decimal   @default(0) @db.Decimal(15, 4)
+  // Uygulanan kupon / kampanya kodu
+  couponCode    String?
+  // Vago süre sonu (anonim sepetler için)
+  expiresAt     DateTime?
+  // Bu sepetten oluşturulan sipariş
+  orderId       String?   @db.Uuid
+
+  items       CartItem[]
+  metadata    Json?
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  abandonedAt DateTime?
+  convertedAt DateTime?
+
+  @@unique([tenantId, sessionKey])
+  @@index([tenantId, customerId])
+  @@index([tenantId, status])
+  @@index([expiresAt])
+  @@map("carts")
+}
+
+model CartItem {
+  id        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cartId    String       @db.Uuid
+  tenantId  String       @db.Uuid
+  // Ürün veya varyant
+  productId String?      @db.Uuid
+  variantId String?      @db.Uuid
+  // Kalem tipi
+  kind      CartItemKind @default(PRODUCT)
+  // Görüntü adı
+  name      String
+  // SKU (snapshot)
+  sku       String?
+  // Miktar
+  quantity  Int          @default(1)
+  // Birim fiyat (decimal)
+  unitPrice Decimal      @db.Decimal(15, 4)
+  // İndirim sonrası birim fiyat
+  finalUnitPrice Decimal @db.Decimal(15, 4)
+  // Toplam satır tutarı
+  lineTotal Decimal      @db.Decimal(15, 4)
+  // Varyant snapshot (JSON: {size, color})
+  variantSnapshot Json?
+  // Özel not
+  notes     String?
+  // Ek metadata
+  metadata  Json?
+
+  cart Cart @relation(fields: [cartId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cartId, variantId])
+  @@index([cartId])
+  @@index([tenantId, productId])
+  @@map("cart_items")
+}
+
+// =====================================================================
+// 13.4 REFRESH TOKEN REVOCATION LIST
+// =====================================================================
+
+/// Kullanılmış/iptal edilmiş refresh token'lar.
+/// Rotation sırasında eski token revoke edilir; aynı token tekrar kullanılırsa
+/// "token reuse detected" alarm'ı tetiklenir (güvenlik olayı).
+model RefreshTokenRevocation {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  // Token JTI (JWT ID) — unique
+  jti         String   @unique @db.VarChar(64)
+  // Family ID — aynı oturumun tüm jti'leri aynı family'ye bağlı
+  familyId    String   @db.VarChar(64)
+  // Tenant + user (denetim için)
+  tenantId    String?  @db.Uuid
+  userId      String?  @db.Uuid
+  // Revoke sebebi
+  reason      String   @db.VarChar(32) @default("rotated")
+  // Revoke zamanı
+  revokedAt   DateTime @default(now())
+  // Expire (token zaten expire olmuşsa bu row silinebilir)
+  expiresAt   DateTime
+
+  @@index([familyId])
+  @@index([expiresAt])
+  @@map("refresh_token_revocations")
+}
+
+// =====================================================================
+// 13.5 TWO-FACTOR AUTHENTICATION (TOTP)
+// =====================================================================
+
+model UserTwoFactor {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String   @db.Uuid
+  userId    String   @db.Uuid
+  enabled   Boolean  @default(false)
+  secret    String?  @db.VarChar(128)
+  lastUsedCode String? @db.VarChar(10)
+  lastUsedAt   DateTime?
+  backupCodes  String[] @default([])
+  enabledAt    DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([tenantId, userId])
+  @@index([userId])
+  @@map("user_two_factors")
+}
+
+// =====================================================================
+// 14. AUDIT LOG — Güvenlik olay kayıtları (KVKK / OWASP uyumlu)
+// =====================================================================
+
+/// Güvenlik ve operasyonel olayların zaman damgalı kaydı.
+/// In-memory buffer ile birlikte dual-write: env AUDIT_DB_ENABLED=true ise DB'ye de yaz.
+model AuditLog {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  // Tenant kapsamı (varsa). NULL = platform-level olay (örn. login failure)
+  tenantId    String?  @db.Uuid
+  // Kullanıcı (varsa — login öncesi olaylar için NULL)
+  userId      String?  @db.Uuid
+  // Müşteri (varsa — B2C işlemler için)
+  customerId  String?  @db.Uuid
+  // Event tipi (örn. "login.success", "csrf.mismatch")
+  action      String   @db.VarChar(80)
+  // Severity: info | warning | critical
+  severity    String   @db.VarChar(20) @default("info")
+  // İstek IP (varsa)
+  ip          String?  @db.VarChar(64)
+  // User agent (varsa)
+  userAgent   String?  @db.VarChar(512)
+  // Correlation ID (request tracing)
+  correlationId String? @db.VarChar(64)
+  // Path (HTTP path)
+  path        String?  @db.VarChar(512)
+  // Method (HTTP method)
+  method      String?  @db.VarChar(16)
+  // Ek bağlam (JSON)
+  context     Json?
+  // Olay zamanı (ms epoch)
+  occurredAt  DateTime @default(now())
+
+  @@index([tenantId, occurredAt])
+  @@index([userId, occurredAt])
+  @@index([action, occurredAt])
+  @@index([severity, occurredAt])
+  @@index([correlationId])
+  @@map("audit_logs")
+}

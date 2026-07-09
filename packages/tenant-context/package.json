@@ -1,0 +1,40 @@
+{
+  "name": "@eticart/tenant-context",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Domain → tenant çözümleme, tenant bilgi bağlamı. Faz 2'de tamamlanacak — şimdilik Faz 0 PoC'sinden devralınan iskelet.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./resolver": {
+      "types": "./dist/resolver/index.d.ts",
+      "default": "./dist/resolver/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "lint": "eslint src --max-warnings=0",
+    "type-check": "tsc --noEmit",
+    "test": "echo \"tenant-context: Faz 2'de testler genişletilecek\"",
+    "build": "tsc",
+    "clean": "rm -rf dist .turbo *.tsbuildinfo"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@eticart/eslint-config": "workspace:*",
+    "@eticart/shared-types": "workspace:*",
+    "@eticart/tsconfig": "workspace:*",
+    "@types/node": "^20.14.0",
+    "eslint": "^9.15.0",
+    "typescript": "^5.6.3"
+  }
+}

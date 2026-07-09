@@ -1,0 +1,19 @@
+{
+  "name": "@eticart/region-router",
+  "version": "0.1.0",
+  "description": "Multi-region routing for EtiCart global SaaS",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@eticart/config": "*",
+    "@eticart/shared-types": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "vitest": "^1.6.0"
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "name": "@eticart/storage-adapter",
+  "version": "0.1.0",
+  "private": true,
+  "description": "S3/R2 uyumlu depolama adaptörü. Faz 4 — imzalı URL, MIME kontrolü, çoklu boyut üretimi.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./local": {
+      "types": "./dist/local/index.d.ts",
+      "default": "./dist/local/index.js"
+    },
+    "./s3": {
+      "types": "./dist/s3/index.d.ts",
+      "default": "./dist/s3/index.js"
+    },
+    "./image": {
+      "types": "./dist/image/index.d.ts",
+      "default": "./dist/image/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "lint": "eslint src --max-warnings=0",
+    "lint:fix": "eslint src --fix",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "tsc",
+    "clean": "rm -rf dist .turbo *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@eticart/shared-types": "workspace:*",
+    "sharp": "^0.33.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@eticart/eslint-config": "workspace:*",
+    "@eticart/tsconfig": "workspace:*",
+    "@types/node": "^20.14.0",
+    "eslint": "^9.15.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
+  }
+}

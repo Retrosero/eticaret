@@ -1,0 +1,25 @@
+# pnpm workspace yapılandırması
+# Türkçe e-ticaret SaaS platformu — Faz 1
+packages:
+  - "apps/*"
+  - "packages/*"
+  - "infra/scripts"
+allowBuilds:
+  '@prisma/client': set this to true or false
+  '@prisma/engines': set this to true or false
+  argon2: set this to true or false
+  esbuild: set this to true or false
+  prisma: set this to true or false
+  sharp: set this to true or false
+  unrs-resolver: set this to true or false
+onlyBuiltDependencies:
+  - "@nestjs/core"
+  - "@scarf/scarf"
+  - argon2
+  - esbuild
+  - sharp
+  - unrs-resolver
+  - "@swc/core"
+  - "@prisma/client"
+  - "@prisma/engines"
+  - prisma

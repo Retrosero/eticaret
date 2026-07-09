@@ -1,0 +1,18 @@
+# Geliştirme sırasında port'ları host'tan açık tutar;
+# üretim override dosyası tarafından bu dosya override edilmez.
+
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+  redis:
+    ports:
+      - "6379:6379"
+  mailhog:
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+  minio:
+    ports:
+      - "9000:9000"
+      - "9001:9001"

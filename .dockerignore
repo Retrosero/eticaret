@@ -1,0 +1,17 @@
+# Türkçe e-ticaret SaaS — Docker bağlamı dışı tutulacaklar
+
+**/node_modules
+**/.next
+**/.turbo
+**/dist
+**/build
+**/coverage
+**/*.log
+**/.env
+**/.env.*
+!**/.env.example
+**/.DS_Store
+**/.idea
+**/.vscode
+**/.husky
+**/test-output.txt

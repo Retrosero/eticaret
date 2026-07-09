@@ -1,0 +1,50 @@
+{
+  "name": "eticart-saas-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Türkçe e-ticaret SaaS platformu — multi-tenant mağaza ve kontrol düzlemi",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@11.9.0",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "lint:fix": "turbo run lint:fix",
+    "type-check": "turbo run type-check",
+    "test": "turbo run test",
+    "test:coverage": "turbo run test:coverage",
+    "clean": "turbo run clean && rm -rf node_modules .turbo",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
+    "migrate": "turbo run migrate",
+    "seed": "turbo run seed",
+    "docker:dev": "docker compose -f infra/docker/docker-compose.yml -f infra/docker/docker-compose.dev.yml --env-file .env.example up",
+    "docker:down": "docker compose -f infra/docker/docker-compose.yml down",
+    "verify": "turbo run type-check lint test",
+    "test:e2e:playwright": "playwright test",
+    "test:e2e:storefront": "playwright test --project=storefront",
+    "test:e2e:admin": "playwright test --project=admin",
+    "test:e2e:install": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.2.10",
+    "prettier": "^3.3.3",
+    "turbo": "^2.3.3",
+    "typescript": "^5.6.3",
+    "@playwright/test": "^1.48.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  }
+}

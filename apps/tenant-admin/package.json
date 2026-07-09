@@ -1,0 +1,37 @@
+{
+  "name": "@eticart/tenant-admin",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Kiracı yönetim paneli — Next.js (Faz 1 iskeleti)",
+  "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "start": "next start -p 3001",
+    "lint": "next lint",
+    "lint:fix": "next lint --fix",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf .next .turbo out"
+  },
+  "dependencies": {
+    "@eticart/config": "workspace:*",
+    "@eticart/observability": "workspace:*",
+    "@eticart/shared-types": "workspace:*",
+    "@eticart/ui": "workspace:*",
+    "next": "^15.0.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@eticart/eslint-config": "workspace:*",
+    "@eticart/tsconfig": "workspace:*",
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "eslint": "^9.15.0",
+    "eslint-config-next": "^15.0.3",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
+  }
+}

@@ -1,0 +1,103 @@
+# Coolify uyumlu compose dosyası — Türkçe e-ticaret SaaS
+# Coolify bu dosyayı doğrudan okuyabilir; servisler iç ağda haberleşir.
+#
+# Coolify ortam değişkenleri:
+#  - SERVICE_FQDN_STOREFRONT
+#  - SERVICE_FQDN_TENANT_ADMIN
+#  - SERVICE_FQDN_SUPER_ADMIN
+#  - SERVICE_FQDN_BACKEND
+#  - SERVICE_FQDN_MEDUSA
+#  - DB_PASSWORD (auto-generated)
+#  - SECRET (auto-generated)
+
+x-common-env: &common-env
+  NODE_ENV: production
+  LOG_LEVEL: info
+  APP_VERSION: "0.1.0"
+
+services:
+  control-plane:
+    image: ${REGISTRY:-ghcr.io}/eticart/control-plane:${TAG:-latest}
+    restart: unless-stopped
+    environment:
+      <<: *common-env
+      CONTROL_PLANE_PORT: 4000
+      CONTROL_PLANE_GLOBAL_PREFIX: api/v1
+      DATABASE_URL: postgres://eticart:${DB_PASSWORD}@postgres:5432/eticart_control
+      REDIS_URL: redis://redis:6379
+      CONTROL_PLANE_CORS: ${ALLOWED_CORS_ORIGINS}
+      JWT_SECRET: ${JWT_SECRET}
+      API_DOCS_ENABLED: "true"
+      SENTRY_DSN: ${SENTRY_DSN:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:4000/api/v1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - eticart
+
+  commerce-backend:
+    image: ${REGISTRY:-ghcr.io}/eticart/commerce-backend:${TAG:-latest}
+    restart: unless-stopped
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgres://eticart:${DB_PASSWORD}@postgres:5432/eticart_app
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      COOKIE_SECRET: ${COOKIE_SECRET}
+      STORE_CORS: ${ALLOWED_CORS_ORIGINS}
+      ADMIN_CORS: ${ALLOWED_CORS_ORIGINS}
+      AUTH_CORS: ${ALLOWED_CORS_ORIGINS}
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:9000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - eticart
+
+  storefront:
+    image: ${REGISTRY:-ghcr.io}/eticart/storefront:${TAG:-latest}
+    restart: unless-stopped
+    environment:
+      <<: *common-env
+      NEXT_PUBLIC_SITE_URL: ${SERVICE_FQDN_STOREFRONT}
+      NEXT_PUBLIC_STORE_API: ${SERVICE_FQDN_MEDUSA}
+    networks:
+      - eticart
+
+  tenant-admin:
+    image: ${REGISTRY:-ghcr.io}/eticart/tenant-admin:${TAG:-latest}
+    restart: unless-stopped
+    environment:
+      <<: *common-env
+      NEXT_PUBLIC_TENANT_ADMIN_URL: ${SERVICE_FQDN_TENANT_ADMIN}
+      NEXT_PUBLIC_CONTROL_PLANE_API: ${SERVICE_FQDN_BACKEND}/api/v1
+    networks:
+      - eticart
+
+  super-admin:
+    image: ${REGISTRY:-ghcr.io}/eticart/super-admin:${TAG:-latest}
+    restart: unless-stopped
+    environment:
+      <<: *common-env
+      NEXT_PUBLIC_SUPER_ADMIN_URL: ${SERVICE_FQDN_SUPER_ADMIN}
+      NEXT_PUBLIC_CONTROL_PLANE_API: ${SERVICE_FQDN_BACKEND}/api/v1
+    networks:
+      - eticart
+
+networks:
+  eticart:
+    name: eticart-prod-net

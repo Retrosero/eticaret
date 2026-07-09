@@ -1,0 +1,39 @@
+# E2E test ortamı — sadece test DB ve Redis.
+#
+# Çalıştırmak için:
+#   docker compose -f docker-compose.test.yml up -d
+#   DATABASE_URL=postgresql://test:test@localhost:5433/eticart_test npm run migrate:test
+#   DATABASE_URL=... npm run test:e2e
+#   docker compose -f docker-compose.test.yml down -v
+
+services:
+  postgres-test:
+    image: postgres:16-alpine
+    container_name: eticart-postgres-test
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: eticart_test
+    ports:
+      - '5433:5432'
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U test -d eticart_test']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis-test:
+    image: redis:7-alpine
+    container_name: eticart-redis-test
+    ports:
+      - '6380:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  postgres_test_data:

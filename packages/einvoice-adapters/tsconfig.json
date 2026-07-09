@@ -1,0 +1,14 @@
+{
+  "extends": "../../packages/tsconfig/node-pkg.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "baseUrl": ".",
+    "paths": {
+      "@eticart/config": ["../config/dist"],
+      "@eticart/shared-types": ["../shared-types/dist"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+}

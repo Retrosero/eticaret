@@ -1,0 +1,113 @@
+# Eticart — Caddy reverse proxy
+#
+# Wildcard SSL (Let's Encrypt) ile tüm tenant subdomain'leri
+# otomatik sertifika alır.
+#
+# Kullanım:
+#   docker compose -f docker-compose.yml up -d caddy
+#   veya
+#   caddy run --config Caddyfile
+#
+# Gerekli DNS:
+#   *.eticart.com.tr → Caddy server IP (Cloudflare proxy OK)
+#
+# Test (Let's Encrypt staging):
+#   caddy run --config Caddyfile --envfile .env.staging
+
+# Global options
+{
+  # Cloudflare DNS challenge için (wildcard için HTTP-01 çalışmaz)
+  # CLOUDFLARE_API_TOKEN env değişkeni gerekir
+  acme_dns cloudflare {$CLOUDFLARE_API_TOKEN}
+
+  email {$LETSENCRYPT_EMAIL:admin@eticart.com.tr}
+
+  # Wildcard sertifika cache
+  cert_cache {
+    capacity 5000
+  }
+}
+
+# ─────────────────────────────────────────────────────────────
+# ANA DOMAIN — Marketing site
+# ─────────────────────────────────────────────────────────────
+eticart.com.tr, www.eticart.com.tr {
+  reverse_proxy storefront:3000 {
+    header_up Host {host}
+    header_up X-Real-IP {remote_host}
+  }
+
+  encode zstd gzip
+
+  # Static cache
+  @assets path /_next/static/* /favicon.ico
+  header @assets Cache-Control "public, max-age=31536000, immutable"
+}
+
+# ─────────────────────────────────────────────────────────────
+# WILDCARD — Tüm tenant subdomain'leri
+# ─────────────────────────────────────────────────────────────
+*.eticart.com.tr {
+  # Reverse proxy → storefront (Next.js tenant çözümleme Host'tan yapar)
+  reverse_proxy storefront:3000 {
+    header_up Host {host}
+    header_up X-Real-IP {remote_host}
+    header_up X-Forwarded-Host {host}
+    header_up X-Forwarded-Proto {scheme}
+  }
+
+  encode zstd gzip
+
+  # Static cache
+  @assets path /_next/static/* /favicon.ico
+  header @assets Cache-Control "public, max-age=31536000, immutable"
+
+  # /api/* → commerce-backend (multi-tenant)
+  @api path /api/*
+  reverse_proxy @api commerce-backend:3001 {
+    header_up X-Tenant-Id-Source "subdomain"
+  }
+
+  # Admin panel — ayrı reverse
+  @admin path /admin* /tenant-admin*
+  reverse_proxy @admin tenant-admin:3002
+
+  # Security headers
+  header {
+    Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "SAMEORIGIN"
+    Referrer-Policy "strict-origin-when-cross-origin"
+    -Server
+  }
+}
+
+# ─────────────────────────────────────────────────────────────
+# SUPER ADMIN (platform yönetimi)
+# ─────────────────────────────────────────────────────────────
+super.eticart.com.tr {
+  reverse_proxy super-admin:3003 {
+    header_up Host {host}
+  }
+
+  # IP allowlist (production'da zorunlu)
+  # @blocked not remote_ip 1.2.3.4 5.6.7.8
+  # respond @blocked 403
+}
+
+# ─────────────────────────────────────────────────────────────
+# API gateway (control-plane)
+# ─────────────────────────────────────────────────────────────
+api.eticart.com.tr {
+  reverse_proxy control-plane:4000 {
+    header_up Host {host}
+  }
+
+  rate_limit {
+    zone api_zone {
+      key    {remote_host}
+      events 100
+      window 1m
+    }
+  }
+}

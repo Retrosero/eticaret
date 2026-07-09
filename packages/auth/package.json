@@ -1,0 +1,66 @@
+{
+  "name": "@eticart/auth",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Kimlik doğrulama, JWT, refresh token, 2FA ve RBAC yardımcıları.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./jwt": {
+      "types": "./dist/jwt/index.d.ts",
+      "default": "./dist/jwt/index.js"
+    },
+    "./password": {
+      "types": "./dist/password/index.d.ts",
+      "default": "./dist/password/index.js"
+    },
+    "./two-factor": {
+      "types": "./dist/two-factor/index.d.ts",
+      "default": "./dist/two-factor/index.js"
+    },
+    "./permissions": {
+      "types": "./dist/permissions/index.d.ts",
+      "default": "./dist/permissions/index.js"
+    },
+    "./tokens": {
+      "types": "./dist/tokens/index.d.ts",
+      "default": "./dist/tokens/index.js"
+    },
+    "./social": {
+      "types": "./dist/social/index.d.ts",
+      "default": "./dist/social/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "lint": "eslint src --max-warnings=0",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "tsc",
+    "clean": "rm -rf dist .turbo *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@eticart/shared-types": "workspace:*",
+    "argon2": "^0.41.1",
+    "jose": "^5.9.6",
+    "otplib": "^12.0.1",
+    "qrcode": "^1.5.4",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@eticart/eslint-config": "workspace:*",
+    "@eticart/tsconfig": "workspace:*",
+    "@types/qrcode": "^1.5.5",
+    "eslint": "^9.15.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
+  }
+}

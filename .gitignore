@@ -1,0 +1,78 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+.next/
+.turbo/
+build/
+out/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+!.env.production.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Testing
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+playwright/.cache/
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Runtime
+.pid
+.seed
+.coverage
+
+# OS files
+.eslintcache
+.cache/
+
+# Temp
+tmp/
+.temp/
+
+# Prisma
+prisma/migrations/dev/
+
+# Test artifacts
+playwright-report/
+test-results/
+
+# Build artifacts
+apps/*/dist/
+packages/*/dist/
+
+# Mobile (Expo)
+.expo/
+.expo-shared/
+
+# Next.js
+.next/
+out/
+
+# Logs from services
+*.pid

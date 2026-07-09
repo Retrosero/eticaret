@@ -1,0 +1,38 @@
+{
+  "name": "@eticart/eslint-config",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Paylaşılan ESLint kuralları — TypeScript, React, Next.js ve Node için",
+  "main": "./src/index.js",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js",
+    "./node": "./src/node.js",
+    "./react": "./src/react.js",
+    "./next": "./src/next.js",
+    "./nestjs": "./src/nestjs.js"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "lint": "echo \"eslint-config: ayar dosyası, lint yok\"",
+    "type-check": "echo \"eslint-config: ayar dosyası, type-check yok\"",
+    "test": "echo \"eslint-config: ayar dosyası, test yok\"",
+    "build": "echo \"eslint-config: ayar dosyası, build yok\"",
+    "clean": "rm -rf node_modules .turbo *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.13.0",
+    "@typescript-eslint/parser": "^8.13.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.31.0",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react": "^7.37.2",
+    "eslint-plugin-react-hooks": "^5.0.0"
+  },
+  "peerDependencies": {
+    "eslint": "^8.57.0 || ^9.0.0",
+    "typescript": "^5.6.0"
+  }
+}

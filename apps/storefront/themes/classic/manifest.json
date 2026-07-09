@@ -1,0 +1,52 @@
+{
+  "id": "classic",
+  "name": "Klasik Mağaza",
+  "description": "Geleneksel e-ticaret düzeni, küçük görseller, klasik font (Lato). Yoğun kataloglar için.",
+  "author": "eticart",
+  "version": "1.0.0",
+  "screenshots": [],
+  "tokens": {
+    "color.primary": "#8b0000",
+    "color.on-primary": "#ffffff",
+    "color.background": "#ffffff",
+    "color.surface": "#fafafa",
+    "color.text": "#222222",
+    "color.text-muted": "#666666",
+    "color.border": "#dddddd",
+    "color.accent": "#d4a017",
+    "font.heading": "Lato, Georgia, serif",
+    "font.body": "Lato, system-ui, sans-serif",
+    "radius.base": "2px",
+    "spacing.scale": "4 8 12 16 20 28",
+    "variant.header": "classic",
+    "variant.footer": "three-column",
+    "variant.product-card": "vertical",
+    "variant.category-page": "top-filter",
+    "variant.product-gallery": "classic"
+  },
+  "layouts": ["default"],
+  "blocks": [
+    "hero",
+    "slider",
+    "banner-grid",
+    "featured-products",
+    "new-products",
+    "best-sellers",
+    "category-showcase",
+    "brand-showcase",
+    "countdown",
+    "text-image",
+    "testimonials",
+    "blog-list",
+    "newsletter",
+    "faq"
+  ],
+  "variants": {
+    "header": ["classic", "mega-menu"],
+    "footer": ["two-column", "three-column", "four-column"],
+    "productCard": ["horizontal", "vertical", "compact"],
+    "categoryPage": ["sidebar-filter", "top-filter"],
+    "productDetailGallery": ["classic", "zoom", "carousel"]
+  },
+  "minPlatformVersion": "5.0.0"
+}

@@ -1,0 +1,245 @@
+# EtiCart — Production Docker Compose (Coolify-compatible)
+#
+# Coolify'da bu dosyayı doğrudan kullanabilirsiniz:
+#   - Coolify → "Docker Compose" deploy
+#   - Repository olarak bu dizini seçin
+#   - Environment değişkenlerini Coolify UI'dan girin
+#
+# Tek hostname ile (ters proxy) çalışacak şekilde yapılandırıldı:
+#   https://eticart.com.tr        → storefront (port 3000)
+#   https://admin.eticart.com.tr  → tenant-admin (port 3001)
+#   https://api.eticart.com.tr    → commerce-backend (port 9000)
+#
+# Coolify otomatik olarak ters proxy yönetir.
+# Yerel geliştirmede port yayınlama kullanılır.
+
+version: '3.8'
+
+services:
+  # =============================================================
+  # Veritabanı — PostgreSQL 16
+  # =============================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: eticart-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: eticart
+      POSTGRES_USER: eticart
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-eticart_change_me_in_production}
+      # PGDATA — volume mount'unda init için
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eticart -d eticart"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eticart-net
+
+  # =============================================================
+  # Cache / Queue — Redis 7
+  # =============================================================
+  redis:
+    image: redis:7-alpine
+    container_name: eticart-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - eticart-net
+
+  # =============================================================
+  # Backend — NestJS (commerce-backend)
+  # =============================================================
+  backend:
+    build:
+      context: .
+      dockerfile: apps/commerce-backend/Dockerfile
+    container_name: eticart-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 9000
+      DATABASE_URL: postgresql://eticart:${POSTGRES_PASSWORD:-eticart_change_me_in_production}@postgres:5432/eticart
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET zorunludur}
+      COOKIE_SECRET: ${COOKIE_SECRET:?COOKIE_SECRET zorunludur}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      APP_VERSION: ${APP_VERSION:-0.9.0}
+
+      # CORS
+      STORE_CORS: ${STORE_CORS:-https://eticart.com.tr}
+      ADMIN_CORS: ${ADMIN_CORS:-https://admin.eticart.com.tr}
+      AUTH_CORS: ${AUTH_CORS:-https://admin.eticart.com.tr,https://eticart.com.tr}
+
+      # Ödeme sağlayıcıları
+      IYZICO_API_KEY: ${IYZICO_API_KEY}
+      IYZICO_SECRET_KEY: ${IYZICO_SECRET_KEY}
+      IYZICO_BASE_URL: ${IYZICO_BASE_URL:-https://api.iyzipay.com}
+      IYZICO_TEST_MODE: ${IYZICO_TEST_MODE:-false}
+      PAYTR_MERCHANT_ID: ${PAYTR_MERCHANT_ID}
+      PAYTR_MERCHANT_KEY: ${PAYTR_MERCHANT_KEY}
+      PAYTR_MERCHANT_SALT: ${PAYTR_MERCHANT_SALT}
+      PAYTR_TEST_MODE: ${PAYTR_TEST_MODE:-false}
+
+      # NES e-Fatura
+      NES_API_KEY: ${NES_API_KEY}
+      NES_API_SECRET: ${NES_API_SECRET}
+      NES_CUSTOMER_ID: ${NES_CUSTOMER_ID}
+      NES_TEST_MODE: ${NES_TEST_MODE:-false}
+
+      # Satıcı bilgileri
+      SELLER_TAX_ID: ${SELLER_TAX_ID}
+      SELLER_TAX_OFFICE: ${SELLER_TAX_OFFICE}
+      SELLER_LEGAL_NAME: ${SELLER_LEGAL_NAME}
+      SELLER_ADDRESS_STREET: ${SELLER_ADDRESS_STREET}
+      SELLER_ADDRESS_CITY: ${SELLER_ADDRESS_CITY}
+      SELLER_EMAIL: ${SELLER_EMAIL}
+      SELLER_PHONE: ${SELLER_PHONE}
+    ports:
+      - "${BACKEND_PORT:-9000}:9000"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:9000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    networks:
+      - eticart-net
+
+  # =============================================================
+  # Migration runner — bir kere çalışır
+  # =============================================================
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/commerce-backend/Dockerfile
+    container_name: eticart-migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://eticart:${POSTGRES_PASSWORD:-eticart_change_me_in_production}@postgres:5432/eticart
+    entrypoint: ["node", "dist/scripts/migrate-deploy.js"]
+    restart: "no"  # bir kere çalışır
+    networks:
+      - eticart-net
+
+  # =============================================================
+  # Storefront — Next.js (müşteri vitrin)
+  # =============================================================
+  storefront:
+    build:
+      context: .
+      dockerfile: apps/storefront/Dockerfile
+    container_name: eticart-storefront
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://backend:9000}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://eticart.com.tr}
+      NEXT_TELEMETRY_DISABLED: 1
+    ports:
+      - "${STOREFRONT_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - eticart-net
+
+  # =============================================================
+  # =============================================================
+  # Storage — MinIO (S3-compatible, geliştirme)
+  # =============================================================
+  # Üretimde Cloudflare R2 kullanılır (KVKK uyumlu, AB bölgesi).
+  # Geliştirme için MinIO, S3 API'sini taklit eder.
+  minio:
+    image: minio/minio:latest
+    container_name: eticart-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:-minio_admin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:-minio_change_me_min_8_chars}
+    volumes:
+      - minio-data:/data
+    ports:
+      - "${S3_PORT:-9000}:9000"
+      - "${S3_CONSOLE_PORT:-9001}:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eticart-net
+
+  # Tenant Admin — Next.js (yönetim paneli)
+  # =============================================================
+  tenant-admin:
+    build:
+      context: .
+      dockerfile: apps/tenant-admin/Dockerfile
+    container_name: eticart-tenant-admin
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://backend:9000}
+      NEXT_TELEMETRY_DISABLED: 1
+    ports:
+      - "${ADMIN_PORT:-3001}:3001"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:3001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - eticart-net
+
+# =============================================================
+# Volumes — kalıcı veri
+# =============================================================
+volumes:
+  postgres-data:
+    name: eticart-postgres-data
+  redis-data:
+    name: eticart-redis-data
+
+# =============================================================
+# Networks
+# =============================================================
+networks:
+  eticart-net:
+    name: eticart-net
+    driver: bridge

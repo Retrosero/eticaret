@@ -1,0 +1,10 @@
+{
+  "extends": "./base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "incremental": false
+  },
+  "include": ["base.json", "node.json", "node-pkg.json", "node-app.json", "nextjs.json", "react-library.json", "nestjs.json"],
+  "exclude": ["node_modules"]
+}

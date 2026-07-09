@@ -1,0 +1,315 @@
+/* =====================================================================
+ * Klasik tema — Klasik Mağaza (Lato font, küçük görseller, klasik layout)
+ * ===================================================================== */
+
+/* Hero — sade, küçük, klasik düzen */
+.theme-classic-hero {
+  padding: 16px 0;
+}
+
+.theme-classic-hero__inner {
+  position: relative;
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+  min-height: 280px;
+  background: var(--color-surface);
+  display: flex;
+  align-items: center;
+}
+
+.theme-classic-hero__media {
+  position: absolute;
+  inset: 0;
+  opacity: 0.4;
+}
+
+.theme-classic-hero__media img {
+  object-fit: cover;
+}
+
+.theme-classic-hero__content {
+  position: relative;
+  z-index: 1;
+  padding: 32px 48px;
+  max-width: 540px;
+}
+
+.theme-classic-hero__title {
+  font-size: 32px;
+  font-weight: 700;
+  margin: 0 0 8px;
+  font-family: var(--theme-font-heading);
+}
+
+.theme-classic-hero__subtitle {
+  font-size: 15px;
+  color: var(--color-text-muted);
+  margin: 0 0 16px;
+}
+
+@media (max-width: 768px) {
+  .theme-classic-hero__inner {
+    min-height: 200px;
+  }
+  .theme-classic-hero__content {
+    padding: 24px;
+  }
+  .theme-classic-hero__title {
+    font-size: 24px;
+  }
+}
+
+/* Slider */
+.theme-classic-slider {
+  padding: 16px 0;
+}
+
+.theme-classic-slider .theme-slider__slide {
+  min-height: 280px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--theme-radius);
+}
+
+/* Banner grid — daha küçük hücreler */
+.theme-classic-banner-grid {
+  padding: 16px 0;
+}
+
+.theme-classic-banner-grid .theme-banner-grid__cell {
+  border: 1px solid var(--color-border);
+  aspect-ratio: 1;
+}
+
+/* Ürün kartı — kompakt */
+.theme-classic-product-card {
+  border-width: 1px;
+  border-radius: 2px;
+}
+
+.theme-classic-product-card__image {
+  aspect-ratio: 1;
+}
+
+.theme-classic-product-card__brand {
+  font-size: 11px;
+  text-transform: none;
+}
+
+/* Kategori vitrini — liste şeklinde */
+.theme-classic-categories {
+  padding: 16px 0;
+}
+
+.theme-classic-categories .theme-category-tile {
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
+}
+
+.theme-classic-categories .theme-category-tile__placeholder {
+  width: 48px;
+  height: 48px;
+  border-radius: 2px;
+  font-size: 20px;
+}
+
+/* Marka vitrini */
+.theme-classic-brands {
+  padding: 16px 0;
+}
+
+.theme-classic-brands .theme-brand-tile {
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
+}
+
+/* Countdown — sade */
+.theme-classic-countdown {
+  padding: 16px 0;
+}
+
+.theme-classic-countdown .theme-countdown {
+  background: var(--color-primary);
+  padding: 24px;
+  border-radius: 2px;
+}
+
+/* Text + Image */
+.theme-classic-text-image {
+  padding: 16px 0;
+}
+
+.theme-classic-text-image .theme-text-image__media {
+  border-radius: 2px;
+  border: 1px solid var(--color-border);
+}
+
+.theme-classic-text-image .theme-text-image__content h2 {
+  font-size: 24px;
+  font-family: var(--theme-font-heading);
+}
+
+/* Video */
+.theme-classic-video {
+  padding: 16px 0;
+}
+
+.theme-classic-video .theme-video {
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
+}
+
+/* Testimonials */
+.theme-classic-testimonials {
+  padding: 16px 0;
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.theme-classic-testimonials .theme-testimonial {
+  border-radius: 2px;
+}
+
+/* Blog */
+.theme-classic-blog {
+  padding: 16px 0;
+}
+
+.theme-classic-blog .theme-blog-card {
+  border-radius: 2px;
+}
+
+/* Newsletter */
+.theme-classic-newsletter {
+  padding: 24px 0;
+}
+
+.theme-classic-newsletter .theme-newsletter {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
+  padding: 24px;
+}
+
+.theme-classic-newsletter .theme-newsletter__input {
+  border-radius: 2px;
+}
+
+/* FAQ */
+.theme-classic-faq {
+  padding: 16px 0;
+}
+
+.theme-classic-faq .theme-faq__item {
+  border-radius: 2px;
+}
+
+/* Klasik Header — klasik navbar */
+.theme-classic-header {
+  background: var(--color-background);
+  border-bottom: 2px solid var(--color-primary);
+}
+
+.theme-classic-header__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  gap: 16px;
+}
+
+.theme-classic-header__logo img {
+  max-height: 36px;
+  width: auto;
+}
+
+.theme-classic-header__logo-fallback {
+  font-family: var(--theme-font-heading);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.theme-classic-header__nav {
+  display: flex;
+  gap: 16px;
+  flex: 1;
+  justify-content: center;
+}
+
+.theme-classic-header__nav-link {
+  color: var(--color-text);
+  padding: 6px 8px;
+  font-size: 14px;
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+}
+
+.theme-classic-header__nav-link:hover {
+  border-bottom-color: var(--color-primary);
+  text-decoration: none;
+}
+
+.theme-classic-header__actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Klasik Footer — 3 sütun */
+.theme-classic-footer {
+  background: var(--color-surface);
+  border-top: 3px solid var(--color-primary);
+  padding: 32px 0 16px;
+  margin-top: 32px;
+}
+
+.theme-classic-footer__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.theme-classic-footer__col h3 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 12px;
+  color: var(--color-primary);
+}
+
+.theme-classic-footer__col ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.theme-classic-footer__col li {
+  margin-bottom: 6px;
+}
+
+.theme-classic-footer__col a {
+  color: var(--color-text);
+  font-size: 13px;
+}
+
+.theme-classic-footer__bottom {
+  border-top: 1px solid var(--color-border);
+  padding-top: 16px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 768px) {
+  .theme-classic-header__nav {
+    display: none;
+  }
+  .theme-classic-footer__grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}

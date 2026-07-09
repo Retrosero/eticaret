@@ -1,0 +1,51 @@
+{
+  "name": "@eticart/notification-adapters",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Bildirim adaptörleri — e-posta (SMTP, Resend), SMS, push.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./common": {
+      "types": "./dist/common/index.d.ts",
+      "default": "./dist/common/index.js"
+    },
+    "./smtp": {
+      "types": "./dist/smtp/index.d.ts",
+      "default": "./dist/smtp/index.js"
+    },
+    "./resend": {
+      "types": "./dist/resend/index.d.ts",
+      "default": "./dist/resend/index.js"
+    },
+    "./queue": {
+      "types": "./dist/queue/index.d.ts",
+      "default": "./dist/queue/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "lint": "eslint src --max-warnings=0",
+    "type-check": "tsc --noEmit",
+    "test": "echo 'Tests: run-tests.mjs'",
+    "build": "tsc",
+    "clean": "rm -rf dist .turbo *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@eticart/config": "workspace:*",
+    "@eticart/shared-types": "workspace:*",
+    "axios": "^1.7.7"
+  },
+  "devDependencies": {
+    "@eticart/eslint-config": "workspace:*",
+    "@eticart/tsconfig": "workspace:*",
+    "@types/node": "^20.14.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.2"
+  }
+}

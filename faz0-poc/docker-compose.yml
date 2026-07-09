@@ -1,0 +1,75 @@
+# docker-compose.yml — Faz 0 Multi-Tenant PoC
+# İki ayrı Postgre instance:
+#   pg_control: kontrol düzlemi (süper admin, tenants tablosu)
+#   pg_app:     mağaza verileri (her tenant kendi scheması ile)
+#
+# ADR-001 referansı: Seçenek B (ortak kontrol paneli + tenant başına izole mağaza).
+#
+# NOT: PoC için iki ayrı instance yeterlidir; gerçek üretimde her tenant için
+# ayrı bir stack olur. PoC, izolasyon mekanizmasının çalıştığını kanıtlar.
+
+services:
+  pg_control:
+    image: postgres:16-alpine
+    container_name: faz0_pg_control
+    environment:
+      POSTGRES_DB: control
+      POSTGRES_USER: control_app
+      POSTGRES_PASSWORD: control_app_secret
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "5433:5432"
+    volumes:
+      - faz0_pg_control_data:/var/lib/postgresql/data
+      - ./sql/0001_control_schema.sql:/docker-entrypoint-initdb.d/00-control-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U control_app -d control"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - faz0_net
+
+  pg_app:
+    image: postgres:16-alpine
+    container_name: faz0_pg_app
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: app_owner
+      POSTGRES_PASSWORD: app_owner_secret
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "5434:5432"
+    volumes:
+      - faz0_pg_app_data:/var/lib/postgresql/data
+      - ./sql/0001_app_schema.sql:/docker-entrypoint-initdb.d/00-app-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app_owner -d app"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - faz0_net
+
+  pg_app_rls:
+    # Bu instance RLS'nin uygulanacağını göstermek için ayrı bir rol ile bağlanır.
+    # pg_app ile aynı veriyi paylaşır (aynı host/port yok; farklı bağlantı rolü).
+    # PoC'de aynı container'a RLS uygulanmış uygulama rolü ile erişiriz.
+    image: postgres:16-alpine
+    container_name: faz0_pg_app_rls_view
+    depends_on:
+      pg_app:
+        condition: service_healthy
+    profiles: ["rls-demo"]   # sadece manuel çalıştırmada
+    networks:
+      - faz0_net
+
+volumes:
+  faz0_pg_control_data:
+    driver: local
+  faz0_pg_app_data:
+    driver: local
+
+networks:
+  faz0_net:
+    driver: bridge

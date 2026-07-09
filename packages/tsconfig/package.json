@@ -1,0 +1,25 @@
+{
+  "name": "@eticart/tsconfig",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Paylaşılan TypeScript derleyici ayarları",
+  "files": [
+    "base.json",
+    "node.json",
+    "node-pkg.json",
+    "node-app.json",
+    "nextjs.json",
+    "react-library.json",
+    "nestjs.json"
+  ],
+  "scripts": {
+    "lint": "echo \"tsconfig: ayar dosyası, lint yok\"",
+    "type-check": "tsc --noEmit",
+    "test": "echo \"tsconfig: ayar dosyası, test yok\"",
+    "build": "echo \"tsconfig: ayar dosyası, build yok\"",
+    "clean": "rm -rf node_modules .turbo *.tsbuildinfo"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}
