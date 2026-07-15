@@ -4,6 +4,7 @@
 # 1) İnşa (deps + derleme)
 FROM node:20-alpine AS builder
 RUN corepack enable pnpm
+RUN corepack prepare pnpm@9.15.9 --activate
 WORKDIR /repo
 
 # Önce tüm workspace için bağımlılıkları kur (cache'i optimize et)

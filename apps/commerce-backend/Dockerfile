@@ -2,6 +2,7 @@
 
 FROM node:20-alpine AS builder
 RUN corepack enable pnpm
+RUN corepack prepare pnpm@9.15.9 --activate
 WORKDIR /repo
 
 COPY pnpm-workspace.yaml package.json turbo.json pnpm-lock.yaml* .npmrc ./
