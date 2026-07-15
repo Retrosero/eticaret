@@ -61,7 +61,9 @@ services:
       - eticart
 
   control-plane:
-    image: ${REGISTRY:-ghcr.io}/eticart/control-plane:${TAG:-latest}
+    build:
+      context: ../..
+      dockerfile: apps/control-plane/Dockerfile
     restart: unless-stopped
     environment:
       <<: *common-env
@@ -87,7 +89,9 @@ services:
       - eticart
 
   commerce-backend:
-    image: ${REGISTRY:-ghcr.io}/eticart/commerce-backend:${TAG:-latest}
+    build:
+      context: ../..
+      dockerfile: apps/commerce-backend/Dockerfile
     restart: unless-stopped
     environment:
       <<: *common-env
@@ -117,7 +121,9 @@ services:
       - eticart
 
   storefront:
-    image: ${REGISTRY:-ghcr.io}/eticart/storefront:${TAG:-latest}
+    build:
+      context: ../..
+      dockerfile: apps/storefront/Dockerfile
     restart: unless-stopped
     environment:
       <<: *common-env
@@ -130,7 +136,9 @@ services:
       - eticart
 
   tenant-admin:
-    image: ${REGISTRY:-ghcr.io}/eticart/tenant-admin:${TAG:-latest}
+    build:
+      context: ../..
+      dockerfile: apps/tenant-admin/Dockerfile
     restart: unless-stopped
     environment:
       <<: *common-env
@@ -140,7 +148,9 @@ services:
       - eticart
 
   super-admin:
-    image: ${REGISTRY:-ghcr.io}/eticart/super-admin:${TAG:-latest}
+    build:
+      context: ../..
+      dockerfile: apps/super-admin/Dockerfile
     restart: unless-stopped
     environment:
       <<: *common-env
