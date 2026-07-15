@@ -10,7 +10,7 @@
  *   app/sitemap.ts → revalidate=3600 (1 saat)
  */
 import type { MetadataRoute } from 'next';
-import { siteConfig } from './site-config.js';
+import { siteConfig } from './site-config';
 
 export interface SitemapEntry {
   /** URL path (örn. /urun/iphone-15) */

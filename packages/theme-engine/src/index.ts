@@ -18,6 +18,7 @@ export * from './tokens/index.js';
 export * from './registry/index.js';
 export * from './resolver/index.js';
 export * from './runtime/index.js';
+export * from './preview-token.js';
 
 // Faz 1'den gelen geriye uyumluluk için temel tipler
 export type { HexColor, ThemeTokens } from './compat.js';

@@ -7,9 +7,8 @@
  */
 import { Inject, Injectable } from '@nestjs/common';
 import type { Pool } from 'pg';
-import { ApiError, ErrorCode, type Logger } from '@eticart/config';
+import { ApiError, ErrorCode } from '@eticart/config';
 
-import { LOGGER_TOKEN } from '../../common/logger.js';
 import type {
   KbCategory,
   KbArticle,
@@ -71,7 +70,6 @@ function markdownToHtml(md: string): string {
 @Injectable()
 export class KbService {
   constructor(
-    @Inject(LOGGER_TOKEN) private readonly logger: Logger,
     @Inject('PG_POOL_TOKEN') private readonly pool: Pool,
   ) {}
 

@@ -124,7 +124,7 @@ export class BrandingController {
         { details: parsed.error.flatten() },
       );
     }
-    return this.branding.updateBranding(user.tenantId, parsed.data);
+    return this.branding.updateBranding(user.tenantId, parsed.data as never);
   }
 
   @Get('css')

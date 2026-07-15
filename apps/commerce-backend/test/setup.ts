@@ -8,7 +8,7 @@
  *      Postgres/Redis bağımlılığı yoktur.
  *
  *   2. **DB-bağımlı E2E** (sipariş, fatura, B2B akışlar):
- *      `DATABASE_URL=postgresql://test:test@localhost:5433/eticart_test` ile
+ *      `DATABASE_URL=postgresql://test:test@localhost:55434/eticart_test` ile
  *      test DB ayakta olmalıdır. CI'da `docker-compose.test.yml` ile başlatılır.
  *
  * Test ortamı env'leri:

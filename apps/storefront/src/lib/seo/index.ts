@@ -29,10 +29,10 @@
  *     );
  *   }
  */
-export * from './types.js';
-export * from './site-config.js';
-export * from './metadata.js';
-export * from './schemas.js';
-export { JsonLd, JsonLdGraph } from './json-ld.js';
-export * from './sitemap.js';
-export * from './robots.js';
+export * from './types';
+export * from './site-config';
+export * from './metadata';
+export * from './schemas';
+export { JsonLd, JsonLdGraph } from './json-ld';
+export * from './sitemap';
+export * from './robots';

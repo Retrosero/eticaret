@@ -4,7 +4,7 @@
  * Server component olarak çalışır; her sayfa ilgili schema'yı render eder.
  * Google Rich Results uyumlu (Product, Organization, BreadcrumbList, FAQ).
  */
-import type { SchemaOrg } from './types.js';
+import type { SchemaOrg } from './types';
 
 interface JsonLdProps {
   data: SchemaOrg | SchemaOrg[];

@@ -56,6 +56,56 @@ async function ensureSchema(client: Client, schema: string): Promise<void> {
   }
 }
 
+async function finalizeControlTenant(slug: string, name: string): Promise<string | null> {
+  const controlUrl = process.env['CONTROL_DATABASE_URL'];
+  if (!controlUrl) return null;
+
+  const client = new Client({ connectionString: controlUrl });
+  await client.connect();
+  try {
+    await client.query('BEGIN');
+    const domain = `${slug}.${process.env['ETICART_BASE_DOMAIN'] ?? 'eticart.com.tr'}`;
+    const tenant = await client.query<{ id: string }>(
+      `INSERT INTO public.tenants (slug, name, status, plan, primary_domain, updated_at)
+       VALUES ($1, $2, 'provisioning', 'starter', $3, NOW())
+       ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, updated_at = NOW()
+       RETURNING id`,
+      [slug, name, domain],
+    );
+    const tenantId = tenant.rows[0]?.id;
+    if (!tenantId) throw new Error('Control tenant id alınamadı.');
+
+    await client.query(
+      `INSERT INTO public.tenant_domains
+         (tenant_id, domain, is_primary, verified_at, verification_status, type)
+       VALUES ($1::uuid, $2, TRUE, NOW(), 'verified', 'subdomain')
+       ON CONFLICT (domain) DO UPDATE SET tenant_id = EXCLUDED.tenant_id,
+         is_primary = TRUE, verified_at = NOW(), verification_status = 'verified'`,
+      [tenantId, domain],
+    );
+    await client.query(
+      `INSERT INTO public.tenant_theme_assignments
+         (tenant_id, theme_id, theme_version, status, overrides, activated_at, created_at, updated_at)
+       SELECT $1::uuid, tv.theme_id, tv.version, 'active', '{}'::jsonb, NOW(), NOW(), NOW()
+       FROM public.theme_versions tv
+       WHERE tv.theme_id = 'modern' AND tv.version = '1.0.0'
+         AND NOT EXISTS (
+           SELECT 1 FROM public.tenant_theme_assignments a
+           WHERE a.tenant_id = $1::uuid AND a.status = 'active'
+         )`,
+      [tenantId],
+    );
+    await client.query(`UPDATE public.tenants SET status = 'active', updated_at = NOW() WHERE id = $1::uuid`, [tenantId]);
+    await client.query('COMMIT');
+    return tenantId;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    await client.end();
+  }
+}
+
 async function run(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   if (!args) {
@@ -95,6 +145,7 @@ async function run(): Promise<void> {
     await ensureSchema(client, schema);
 
     await client.query('COMMIT');
+    await finalizeControlTenant(args.slug, args.name);
     // eslint-disable-next-line no-console
     console.log(
       `[provision] Tenant ${args.slug} hazır (id=${tenantId}, şema=${schema}).`,

@@ -12,7 +12,11 @@ import { NotificationService } from './notification-service.js';
       provide: 'NOTIFICATION_SERVICE',
       useValue: NotificationService,
     },
+    {
+      provide: 'EMAIL_QUEUE_TOKEN',
+      useValue: NotificationService.queue,
+    },
   ],
-  exports: ['NOTIFICATION_SERVICE'],
+  exports: ['NOTIFICATION_SERVICE', 'EMAIL_QUEUE_TOKEN'],
 })
 export class NotificationModule {}

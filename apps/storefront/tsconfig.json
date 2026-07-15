@@ -7,6 +7,15 @@
     },
     "noEmit": true
   },
-  "include": ["next-env.d.ts", "src/**/*.ts", "src/**/*.tsx", ".next/types/**/*.ts"],
+  "include": [
+    "next-env.d.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "lib/**/*.ts",
+    "lib/**/*.tsx",
+    "themes/**/*.tsx",
+    "../../packages/storefront-sdk/src/**/*.ts",
+    ".next/types/**/*.ts"
+  ],
   "exclude": ["node_modules", ".next", "out", "build"]
 }

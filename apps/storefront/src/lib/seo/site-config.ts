@@ -5,7 +5,7 @@
  * Her tenant'ın mağaza URL'si ayrıdır (`<tenant>.eticart.com.tr`) ama site
  * config'i aynıdır.
  */
-import type { SiteConfig } from './types.js';
+import type { SiteConfig } from './types';
 
 const env = process.env;
 

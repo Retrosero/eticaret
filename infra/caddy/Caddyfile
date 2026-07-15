@@ -64,7 +64,7 @@ eticart.com.tr, www.eticart.com.tr {
 
   # /api/* → commerce-backend (multi-tenant)
   @api path /api/*
-  reverse_proxy @api commerce-backend:3001 {
+  reverse_proxy @api commerce-backend:9000 {
     header_up X-Tenant-Id-Source "subdomain"
   }
 

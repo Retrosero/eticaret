@@ -5,8 +5,8 @@
  * eksiksiz meta tag üretir (title, description, OG, Twitter, canonical, robots).
  */
 import type { Metadata } from 'next';
-import type { PageSEO, SiteConfig } from './types.js';
-import { siteConfig } from './site-config.js';
+import type { PageSEO, SiteConfig } from './types';
+import { siteConfig } from './site-config';
 
 /**
  * Verilen PageSEO'yu Next.js Metadata objesine dönüştürür.

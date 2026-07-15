@@ -96,7 +96,7 @@ async function bootstrapNest(): Promise<void> {
       origin: corsOrigins,
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-Id', 'X-CSRF-Token', 'X-Correlation-Id'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token', 'X-Correlation-Id'],
       exposedHeaders: ['X-Correlation-Id', 'X-RateLimit-Limit', 'X-RateLimit-Remaining'],
       maxAge: 3600,
     }),
@@ -126,7 +126,6 @@ async function bootstrapNest(): Promise<void> {
       { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
       'bearer',
     )
-    .addApiKey({ type: 'apiKey', name: 'X-Tenant-Id', in: 'header' }, 'tenant')
     .addTag('cart', 'Sepet yönetimi')
     .addTag('checkout', 'Ödeme ve checkout')
     .addTag('order', 'Sipariş yönetimi')

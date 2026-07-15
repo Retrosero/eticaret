@@ -87,6 +87,7 @@ export class TenantsService {
       plan: Tenant['plan'];
       primaryDomain?: string | null;
       ownerEmail?: string | null;
+      metadata?: Record<string, unknown>;
       region?: string | null;
       locale?: string;
       currency?: string;
@@ -122,6 +123,12 @@ export class TenantsService {
     }
 
     const maskedEmail = input.ownerEmail ? maskMail(input.ownerEmail) : null;
+    const metadata: Record<string, unknown> = {
+      ...(input.metadata ?? {}),
+    };
+    if (input.ownerEmail) {
+      metadata['ownerEmail'] = input.ownerEmail.trim().toLowerCase();
+    }
 
     const createInput: TenantCreateInput = {
       slug: input.slug,
@@ -133,7 +140,7 @@ export class TenantsService {
       region: input.region ?? null,
       locale: input.locale ?? 'tr-TR',
       currency: input.currency ?? 'TRY',
-      metadata: {},
+      metadata,
       idempotencyKey: input.idempotencyKey ?? null,
     };
 

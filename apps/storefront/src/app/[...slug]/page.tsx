@@ -8,35 +8,20 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { unstable_cache } from 'next/cache';
-import {
-  HeroBlock,
-  SliderBlock,
-  BannerGridBlock,
-  FeaturedProductsBlock,
-  NewProductsBlock,
-  BestSellersBlock,
-  CategoryShowcaseBlock,
-  BrandShowcaseBlock,
-  CountdownBlock,
-  TextImageBlock,
-  VideoEmbedBlock,
-  TestimonialsBlock,
-  BlogListBlock,
-  NewsletterBlock,
-  FaqBlock,
-  HtmlBlock,
-} from '../../../lib/theme/registry.js';
-import { resolveStorefrontTenant } from '../../lib/theme/tenant-resolver.js';
-import { loadTheme } from '../../../lib/theme/loader.js';
-import { demoData } from '../../../lib/theme/demo-data.js';
-import { themeClass } from '../../../lib/theme/dispatcher.js';
+import { Fragment } from 'react';
+import { renderStorefrontBlock, supportedBlocksForTheme } from '../../../lib/theme/block-registry';
+import { resolveStorefrontTenant } from '@/lib/theme/tenant-resolver';
+import { loadTheme } from '../../../lib/theme/loader';
+import { demoData } from '../../../lib/theme/demo-data';
+import { themeClass } from '../../../lib/theme/dispatcher';
 import type { PageBlockRecord } from '@eticart/theme-engine';
+import type { StorefrontSdk } from '@eticart/storefront-sdk';
 
 /**
  * Cache'lenmiş blok listesi — Next.js tag-based cache kullanır.
  * Ürün güncellenince ilgili tag'lar revalidateTag ile invalidate edilir.
  */
-const getHomePageBlocks = unstable_cache(
+const getDemoHomePageBlocks = unstable_cache(
   async (): Promise<PageBlockRecord[]> => {
     // Faz 5'te: SDK.pageBySlug('home') → StorefrontPagePayload
     // Demo modunda: hardcoded fallback bloklar
@@ -166,12 +151,33 @@ const getHomePageBlocks = unstable_cache(
   { tags: ['page-blocks-home'], revalidate: 300 },
 );
 
+async function getHomePageBlocks(sdk: StorefrontSdk): Promise<PageBlockRecord[]> {
+  const payload = await sdk.pageBySlug('home');
+  if (payload?.blocks?.length) {
+    return payload.blocks.map((block) => ({
+      ...block,
+      type: block.type as PageBlockRecord['type'],
+    }));
+  }
+
+  // Demo blokları yalnızca geliştirmede kullanılabilir. Production'da CMS
+  // verisi yoksa boş mağaza render edilir; sahte ürün gösterilmez.
+  if (process.env['NODE_ENV'] === 'development') {
+    return getDemoHomePageBlocks();
+  }
+  return [];
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   const headerStore = await headers();
   const host = headerStore.get('host') ?? 'demo.eticart.local';
   const ctx = await resolveStorefrontTenant(host);
   if (!ctx) return { title: 'EtiCart' };
-  const { theme } = await loadTheme({ ctx, demoData });
+  const { theme } = await loadTheme({
+    ctx,
+    demoData: process.env['NODE_ENV'] === 'development' ? demoData : undefined,
+    backendUrl: process.env['NEXT_PUBLIC_STORE_API'],
+  });
   return {
     title: theme.seo.defaultTitle || 'Mağaza',
     description: theme.seo.defaultDescription,
@@ -186,39 +192,31 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function HomePage() {
+export default async function HomePage({ previewToken }: { previewToken?: string } = {}) {
   const headerStore = await headers();
   const host = headerStore.get('host') ?? 'demo.eticart.local';
   const ctx = await resolveStorefrontTenant(host);
   if (!ctx) {
     return <div>Tenant çözümlenemedi.</div>;
   }
-  const { theme, sdk } = await loadTheme({ ctx, demoData });
-  const blocks = await getHomePageBlocks();
+  const { theme, sdk } = await loadTheme({
+    ctx,
+    demoData: process.env['NODE_ENV'] === 'development' ? demoData : undefined,
+    backendUrl: process.env['NEXT_PUBLIC_STORE_API'],
+    previewToken,
+  });
+  const blocks = await getHomePageBlocks(sdk);
   const cls = themeClass(theme.manifest.id);
 
+  const supportedBlocks = supportedBlocksForTheme(theme.manifest);
   const rendered = await Promise.all(
-    blocks.map(async (block) => {
+    blocks.filter((block) => supportedBlocks.has(block.type)).map(async (block, index) => {
       try {
-        switch (block.type) {
-          case 'hero': return await HeroBlock({ block, sdk, themeClass: cls });
-          case 'slider': return await SliderBlock({ block, sdk, themeClass: cls });
-          case 'banner-grid': return await BannerGridBlock({ block, sdk, themeClass: cls });
-          case 'featured-products': return await FeaturedProductsBlock({ block, sdk, themeClass: cls });
-          case 'new-products': return await NewProductsBlock({ block, sdk, themeClass: cls });
-          case 'best-sellers': return await BestSellersBlock({ block, sdk, themeClass: cls });
-          case 'category-showcase': return await CategoryShowcaseBlock({ block, sdk, themeClass: cls });
-          case 'brand-showcase': return await BrandShowcaseBlock({ block, sdk, themeClass: cls });
-          case 'countdown': return await CountdownBlock({ block, sdk, themeClass: cls });
-          case 'text-image': return await TextImageBlock({ block, sdk, themeClass: cls });
-          case 'video-embed': return await VideoEmbedBlock({ block, sdk, themeClass: cls });
-          case 'testimonials': return await TestimonialsBlock({ block, sdk, themeClass: cls });
-          case 'blog-list': return await BlogListBlock({ block, sdk, themeClass: cls });
-          case 'newsletter': return await NewsletterBlock({ block, sdk, themeClass: cls });
-          case 'faq': return await FaqBlock({ block, sdk, themeClass: cls });
-          case 'html': return await HtmlBlock({ block, sdk, themeClass: cls });
-          default: return null;
-        }
+        return (
+          <Fragment key={block.id ?? `${block.type}-${index}`}>
+            {await renderStorefrontBlock(block, { sdk, themeClass: cls })}
+          </Fragment>
+        );
       } catch (err) {
         // Blok render hatası: geliştirme sırasında logla, prod'da sessizce atla
         if (process.env.NODE_ENV !== 'production') {

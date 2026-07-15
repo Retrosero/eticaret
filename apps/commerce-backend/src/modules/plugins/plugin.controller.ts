@@ -27,14 +27,11 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { ApiError, ErrorCode, type Logger } from '@eticart/config';
-import { Inject } from '@nestjs/common';
+import { ApiError, ErrorCode } from '@eticart/config';
 
 import { JwtAuthGuard } from '../../common/jwt-auth.guard.js';
 import { CurrentUser } from '../../common/current-user.decorator.js';
-import { LOGGER_TOKEN } from '../../common/logger.js';
 import { PluginService } from './plugin.service.js';
-import { globalRegistry } from '@eticart/plugin-sdk';
 
 @ApiTags('Plugin Marketplace')
 @ApiBearerAuth()
@@ -42,7 +39,6 @@ import { globalRegistry } from '@eticart/plugin-sdk';
 @Controller('marketplace')
 export class PluginController {
   constructor(
-    @Inject(LOGGER_TOKEN) private readonly logger: Logger,
     private readonly plugins: PluginService,
   ) {}
 

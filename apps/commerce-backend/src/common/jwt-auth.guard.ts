@@ -17,6 +17,7 @@ import { verifyAccessToken, type AccessTokenPayload } from '@eticart/auth';
 import { ApiError, ErrorCode } from '@eticart/config';
 
 import { InjectJwtSecret, JWT_SECRET_TOKEN } from './auth.tokens.js';
+import type { RequestWithTenant } from './tenant-resolver.middleware.js';
 
 /** Express request'in `user` eklentisi. */
 export interface AuthenticatedRequest extends Request {
@@ -31,7 +32,7 @@ export class JwtAuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const req = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const req = context.switchToHttp().getRequest<AuthenticatedRequest & RequestWithTenant>();
     const header = req.headers.authorization;
     if (!header || !header.startsWith('Bearer ')) {
       throw new ApiError(401, ErrorCode.UNAUTHORIZED, 'Kimlik doğrulama başlığı eksik.');
@@ -55,7 +56,20 @@ export class JwtAuthGuard implements CanActivate {
       throw new ApiError(401, ErrorCode.UNAUTHORIZED, 'Geçersiz veya süresi dolmuş token.');
     }
 
-    req.user = payload;
+    if (req.tenantContext && req.tenantContext.tenantId !== payload.tenantId) {
+      throw new ApiError(
+        403,
+        ErrorCode.FORBIDDEN,
+        'Oturum tenant ile istek domaini eşleşmiyor.',
+      );
+    }
+
+    // Downstream controller'lar tenantId'yi token'dan tekrar okuyabilir; burada
+    // değer Host resolver tarafından doğrulanmış tenant ile sabitlenir.
+    req.user = {
+      ...payload,
+      tenantId: req.tenantContext?.tenantId ?? payload.tenantId,
+    };
     return true;
   }
 }

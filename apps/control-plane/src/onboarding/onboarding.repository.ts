@@ -108,6 +108,7 @@ export class OnboardingRepository {
     tenantId: string;
     role: string;
   } | null> {
+    await this.ensureTenantUserSchema();
     const res = await this.pool.query(
       `SELECT id, tenant_id, role FROM public.tenant_users WHERE email = $1 LIMIT 1`,
       [email.toLowerCase()],
@@ -130,6 +131,7 @@ export class OnboardingRepository {
     passwordHash: string;
     role: string;
   }): Promise<string> {
+    await this.ensureTenantUserSchema();
     const res = await this.pool.query(
       `INSERT INTO public.tenant_users (tenant_id, email, full_name, password_hash, role, status, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, 'active', now(), now())
@@ -143,5 +145,12 @@ export class OnboardingRepository {
       ],
     );
     return res.rows[0]?.id;
+  }
+
+  private async ensureTenantUserSchema(): Promise<void> {
+    await this.pool.query(
+      `ALTER TABLE public.tenant_users
+       ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'owner'`,
+    );
   }
 }

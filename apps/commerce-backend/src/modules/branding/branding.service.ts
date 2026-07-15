@@ -149,7 +149,7 @@ export class BrandingService {
             422,
             ErrorCode.VALIDATION_ERROR,
             `Geçersiz renk: ${key} = ${value}. Hex formatında olmalı (#RGB veya #RRGGBB).`,
-            { field: `colors.${key}` },
+            { details: { field: `colors.${key}` } as never },
           );
         }
       }

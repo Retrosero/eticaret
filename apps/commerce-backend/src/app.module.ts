@@ -17,7 +17,7 @@
  * JWT_SECRET DI token'ı ortam değişkeninden okunur.
  */
 
-import { Module, type Provider } from '@nestjs/common';
+import { Module, type MiddlewareConsumer, NestModule, type Provider } from '@nestjs/common';
 
 import { DbModule } from './db/db.module.js';
 import { APP_GUARD } from "@nestjs/core";
@@ -26,6 +26,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule, LOGGER_TOKEN } from './common/logger.js';
 import { GlobalExceptionFilter } from './common/global-exception.filter.js';
 import { CorrelationIdMiddleware } from './common/correlation-id.middleware.js';
+import { TenantResolverMiddleware } from './common/tenant-resolver.middleware.js';
 
 import { CartModule } from './modules/cart/cart.module.js';
 import { CheckoutModule } from './modules/checkout/checkout.module.js';
@@ -49,6 +50,8 @@ import { KbModule } from './modules/kb/kb.module.js';
 import { PluginUpdatesModule } from './modules/plugin-updates/plugin-updates.module.js';
 import { Auth2FAModule } from './modules/auth/auth-2fa.module.js';
 import { AuthRefreshModule } from './modules/auth/auth-refresh.module.js';
+import { ThemeModule } from './modules/theme/theme.module.js';
+import { CsrfGuard } from './common/csrf.guard.js';
 
 /**
  * JWT secret sağlayıcısı — JwtAuthGuard için DI token'ı doldurur.
@@ -87,6 +90,7 @@ const globalFilterProvider: Provider = {
     PluginUpdatesModule,
     Auth2FAModule,
     AuthRefreshModule,
+    ThemeModule,
     // Rate limiting — global (auth + public endpoint'ler)
     ThrottlerModule.forRoot([
       {
@@ -107,6 +111,7 @@ const globalFilterProvider: Provider = {
     ]),
   ],
   providers: [
+    TenantResolverMiddleware,
     globalFilterProvider,
     // Global rate limit guard
     {
@@ -117,8 +122,6 @@ const globalFilterProvider: Provider = {
     {
       provide: APP_GUARD,
       useFactory: (secret: string) => {
-        // ESM dynamic import çakışmasını önle
-        const { CsrfGuard } = require('./common/csrf.guard.js');
         return new CsrfGuard({
           secret,
           publicPaths: [
@@ -138,7 +141,11 @@ const globalFilterProvider: Provider = {
     } as any,
   ],
 })
-export class AppModule {
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(TenantResolverMiddleware).forRoutes('*');
+  }
+
   /** Middleware'ler module_ref üzerinden main.ts'te uygulanır. */
   static readonly correlationMiddleware = CorrelationIdMiddleware;
   /** Token export'ları main.ts ve testler için. */

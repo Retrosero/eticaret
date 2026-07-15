@@ -5,8 +5,8 @@
  *
  * Çalıştırmak için:
  *   1. docker compose -f docker-compose.test.yml up -d
- *   2. DATABASE_URL=postgresql://test:test@localhost:5433/eticart_test npm run migrate:test
- *   3. DATABASE_URL=postgresql://test:test@localhost:5433/eticart_test npm run test:e2e
+ *   2. DATABASE_URL=postgresql://test:test@localhost:55434/eticart_test npm run migrate:test
+ *   3. DATABASE_URL=postgresql://test:test@localhost:55434/eticart_test npm run test:e2e
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';

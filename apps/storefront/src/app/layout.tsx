@@ -1,19 +1,24 @@
-/**
- * Türkçe müşteri vitrini — kök layout (SEO optimized).
+﻿/**
+ * TÃ¼rkÃ§e mÃ¼ÅŸteri vitrini â€” kÃ¶k layout (SEO optimized).
  *
- * - Tüm sayfalarda geçerli meta tags (title template, description, OG, Twitter)
+ * - TÃ¼m sayfalarda geÃ§erli meta tags (title template, description, OG, Twitter)
  * - JSON-LD Organization + WebSite schema (root'a bir kez)
  * - Webmaster tools verification
  * - Manifest, theme-color, vb.
  */
 import type { ReactNode } from 'react';
 import type { Metadata, Viewport } from 'next';
+import '../../themes/shared/css/base.css';
+import '../../themes/modern/theme.css';
+import '../../themes/classic/theme.css';
+import '../../themes/atelier/theme.css';
+import '../../themes/trade/theme.css';
 import { JsonLd } from '@/lib/seo';
 import { organizationSchema, websiteSchema } from '@/lib/seo';
 import { siteConfig } from '@/lib/seo';
 import { getTenantBranding, brandingToCss } from '@/lib/branding';
 
-// Next.js 15 — Viewport ayrı export gerekiyor
+// Next.js 15 â€” Viewport ayrÄ± export gerekiyor
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
@@ -29,22 +34,22 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
   title: {
     template: `%s | ${siteConfig.name}`,
-    default: `${siteConfig.name} — Türkiye'nin Modern E-Ticaret Platformu`,
+    default: `${siteConfig.name} â€” TÃ¼rkiye'nin Modern E-Ticaret Platformu`,
   },
   description: siteConfig.description,
   applicationName: siteConfig.name,
   keywords: [
     'eticart',
     'e-ticaret',
-    'online mağaza',
+    'online maÄŸaza',
     'B2B',
     'B2C',
-    'bayi yönetimi',
+    'bayi yÃ¶netimi',
     'e-fatura',
     'KVKK uyumlu',
-    'çok kiracılı',
-    'Türkiye e-ticaret',
-    'online alışveriş',
+    'Ã§ok kiracÄ±lÄ±',
+    'TÃ¼rkiye e-ticaret',
+    'online alÄ±ÅŸveriÅŸ',
   ],
   authors: [{ name: siteConfig.name, url: siteConfig.url }],
   creator: siteConfig.name,
@@ -88,11 +93,11 @@ export default async function RootLayout({ children }: { children: ReactNode }):
   return (
     <html lang="tr" dir="ltr">
       <head>
-        {/* DNS prefetch — performans için */}
+        {/* DNS prefetch â€” performans iÃ§in */}
         <link rel="dns-prefetch" href="https://api.eticart.com.tr" />
         <link rel="preconnect" href="https://api.eticart.com.tr" crossOrigin="anonymous" />
 
-        {/* JSON-LD — Organization + WebSite (root'a bir kez) */}
+        {/* JSON-LD â€” Organization + WebSite (root'a bir kez) */}
         <JsonLd
           id="seo-root"
           data={[organizationSchema(), websiteSchema()]}
@@ -107,3 +112,4 @@ export default async function RootLayout({ children }: { children: ReactNode }):
     </html>
   );
 }
+

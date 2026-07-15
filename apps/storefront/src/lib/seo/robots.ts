@@ -8,7 +8,7 @@
  * - Crawl-delay (nazik bot'lara)
  */
 import type { MetadataRoute } from 'next';
-import { siteConfig } from './site-config.js';
+import { siteConfig } from './site-config';
 
 export interface RobotsInput {
   /** Tenant slug (multi-tenant). */

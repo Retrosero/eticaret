@@ -28,6 +28,180 @@ describe('ProvisioningService — Sprint 15 yeni step\'ler', () => {
     service = new ProvisioningService(mockLogger, mockPool, mockTx);
   });
 
+  describe('create_schema', () => {
+    it('tenant icin gercek schema ve temel tablolari olusturur', async () => {
+      mockPool.query.mockResolvedValueOnce({
+        rows: [{ slug: 'demo-magaza' }],
+      });
+      mockPool.query.mockResolvedValue({ rowCount: 0, rows: [] });
+
+      await (service as any).executeStep('tenant-1', 'create_schema');
+
+      expect(mockPool.query).toHaveBeenCalledWith(
+        expect.stringContaining('SELECT slug FROM public.tenants'),
+        ['tenant-1'],
+      );
+      expect(mockPool.query).toHaveBeenCalledWith(
+        expect.stringContaining('CREATE SCHEMA IF NOT EXISTS "tenant_demo_magaza"'),
+      );
+      expect(mockPool.query).toHaveBeenCalledWith(
+        expect.stringContaining('CREATE TABLE IF NOT EXISTS "tenant_demo_magaza"."products"'),
+      );
+      expect(mockPool.query).toHaveBeenCalledWith(
+        expect.stringContaining('CREATE TABLE IF NOT EXISTS "tenant_demo_magaza".brands'),
+      );
+      expect(mockPool.query).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO public.tenant_status_history'),
+        ['tenant-1', 'tenant schema created: demo-magaza'],
+      );
+    });
+  });
+
+  describe('create_tenant_admin', () => {
+    it('tenant admin kullanicisini tenant_users ve public.users tablolarinda hazirlar', async () => {
+      mockPool.query.mockImplementation(async (sql: string) => {
+        if (sql.includes('ALTER TABLE public.tenant_users')) {
+          return { rowCount: 0, rows: [] };
+        }
+        if (sql.includes('SELECT slug, name, locale, currency, primary_domain, metadata')) {
+          return {
+            rows: [
+              {
+                slug: 'demo-magaza',
+                name: 'Demo Magaza',
+                locale: 'tr-TR',
+                currency: 'TRY',
+                primary_domain: null,
+                metadata: { ownerEmail: 'admin@demo.com', ownerFullName: 'Demo Admin' },
+              },
+            ],
+          };
+        }
+        if (sql.includes('FROM public.tenant_users')) {
+          return {
+            rows: [
+              {
+                id: 'tu-1',
+                email: 'admin@demo.com',
+                full_name: 'Demo Admin',
+                password_hash: '$argon2id$existing-hash',
+                role: 'owner',
+                status: 'active',
+              },
+            ],
+          };
+        }
+        if (sql.includes('FROM public.users') && sql.includes('WHERE tenant_id = $1')) {
+          return { rows: [] };
+        }
+        if (sql.includes('FROM public.users') && sql.includes('WHERE lower(email) = $1')) {
+          return { rows: [] };
+        }
+        return { rowCount: 1, rows: [] };
+      });
+
+      await (service as any).executeStep('tenant-1', 'create_tenant_admin');
+
+      expect(mockPool.query).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO public.tenant_users'),
+        ['tenant-1', 'admin@demo.com', 'Demo Admin', '$argon2id$existing-hash', 'owner'],
+      );
+      expect(mockPool.query).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO public.users'),
+        ['admin@demo.com', 'Demo Admin', 'tenant_owner', 'tenant-1', '$argon2id$existing-hash'],
+      );
+      expect(mockPool.query).toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE public.tenants'),
+        [
+          'tenant-1',
+          expect.stringContaining('"ownerEmail":"admin@demo.com"'),
+        ],
+      );
+    });
+  });
+
+  describe('create_initial_store', () => {
+    it('tema, seo, menuler ve ana sayfa kaydini ilk kurulumda olusturur', async () => {
+      mockPool.query.mockImplementation(async (sql: string) => {
+        if (sql.includes('SELECT slug, name, locale, currency, primary_domain, metadata')) {
+          return {
+            rows: [
+              {
+                slug: 'demo-magaza',
+                name: 'Demo Magaza',
+                locale: 'tr-TR',
+                currency: 'TRY',
+                primary_domain: null,
+                metadata: { ownerEmail: 'admin@demo.com' },
+              },
+            ],
+          };
+        }
+        if (sql.includes('FROM public.tenant_settings') && sql.includes('WHERE tenant_id = $1')) {
+          return { rows: [] };
+        }
+        if (sql.includes('FROM public.theme_versions')) {
+          return { rows: [{ version: '1.0.0' }] };
+        }
+        if (sql.includes('FROM public.tenant_theme_assignments')) {
+          return { rows: [] };
+        }
+        if (sql.includes('INSERT INTO public.navigation_menus')) {
+          if (sql.includes("'header'")) return { rows: [{ id: 'menu-header' }] };
+          return { rows: [{ id: 'menu-footer' }] };
+        }
+        if (sql.includes('FROM public.navigation_menu_items')) {
+          return { rows: [{ count: '0' }] };
+        }
+        if (sql.includes('FROM public.pages')) {
+          return { rows: [] };
+        }
+        if (sql.includes('INSERT INTO public.pages')) {
+          return { rows: [{ id: 'page-home' }] };
+        }
+        if (sql.includes('INSERT INTO public.page_revisions')) {
+          return { rows: [{ id: 'rev-home' }] };
+        }
+        return { rowCount: 1, rows: [] };
+      });
+
+      await (service as any).executeStep('tenant-1', 'create_initial_store');
+
+      expect(mockPool.query).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO public.tenant_settings'),
+        expect.arrayContaining([
+          'tenant-1',
+          expect.any(String),
+          expect.any(String),
+          expect.any(String),
+          expect.any(String),
+        ]),
+      );
+      expect(mockPool.query).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO public.seo_settings'),
+        expect.arrayContaining([
+          'tenant-1',
+          '%s | Demo Magaza',
+          'Demo Magaza',
+          expect.stringContaining('online magaza'),
+          'https://demo-magaza.eticart.com.tr',
+        ]),
+      );
+      expect(mockPool.query).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO public.tenant_theme_assignments'),
+        ['tenant-1', '1.0.0'],
+      );
+      expect(mockPool.query).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO public.page_revisions'),
+        expect.arrayContaining([
+          'page-home',
+          expect.stringContaining('"type":"hero"'),
+          'Provisioning default home page',
+        ]),
+      );
+    });
+  });
+
   describe('create_storage_bucket', () => {
     it('dry-run modunda gerçek bucket oluşturmadan tenant_settings günceller', async () => {
       process.env['STORAGE_DRY_RUN'] = 'true';

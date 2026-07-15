@@ -9,7 +9,6 @@ import type { Pool } from 'pg';
 import { ApiError, ErrorCode, type Logger } from '@eticart/config';
 import {
   globalRegistry,
-  type PluginContext,
   type PluginManifestV2,
   PluginVersionRegistry,
   PluginRateLimiter,
@@ -26,8 +25,8 @@ import { LOGGER_TOKEN } from '../../common/logger.js';
 import trendyolHandlers, { manifest as trendyolManifest } from '@eticart/marketplace-trendyol';
 import hepsiburadaHandlers, { manifest as hepsiburadaManifest } from '@eticart/marketplace-hepsiburada';
 import n11Handlers, { manifest as n11Manifest } from '@eticart/marketplace-n11';
-import gittigidiyorHandlers, { manifest as gittigidiyorManifest } from '@eticart/marketplace-gittigidiyor';
-import amazonTrHandlers, { manifest as amazonTrManifest } from '@eticart/marketplace-amazon-tr';
+import { manifest as gittigidiyorManifest } from '@eticart/marketplace-gittigidiyor';
+import { manifest as amazonTrManifest } from '@eticart/marketplace-amazon-tr';
 
 /**
  * Tenant'ın yüklü plugin'leri (DB'den).
@@ -527,7 +526,7 @@ export class PluginService implements OnApplicationBootstrap {
     if (adapterObj?.testConnection) {
       try {
         const result = await adapterObj.testConnection({ config: installed.config });
-        return { success: result.success, message: result.message };
+        return { success: result, message: result ? 'Bağlantı başarılı.' : 'Bağlantı başarısız.' };
       } catch (err) {
         return { success: false, message: (err as Error).message };
       }

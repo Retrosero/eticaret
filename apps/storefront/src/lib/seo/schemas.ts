@@ -10,8 +10,8 @@ import type {
   OrganizationSchema,
   ProductSchema,
   WebSiteSchema,
-} from './types.js';
-import { siteConfig } from './site-config.js';
+} from './types';
+import { siteConfig } from './site-config';
 
 /**
  * Organization schema — site genelinde bir kez render edilir.

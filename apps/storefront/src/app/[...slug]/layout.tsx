@@ -15,22 +15,24 @@ import {
   getThemeStyleTags,
   getGoogleFontLink,
   getCacheTags,
-} from '@eticart/theme-engine/runtime/index.js';
-import { loadTheme, ensureDefaultAssignment } from '../../../lib/theme/loader.js';
-import { demoData } from '../../../lib/theme/demo-data.js';
-import { ThemeHeader, ThemeFooter, themeClass } from '../../../lib/theme/dispatcher.js';
-import { resolveStorefrontTenant } from '../../../lib/theme/tenant-resolver.js';
+} from '@eticart/theme-engine/runtime';
+import { loadTheme, ensureDefaultAssignment } from '../../../lib/theme/loader';
+import { demoData } from '../../../lib/theme/demo-data';
+import { ThemeHeader, ThemeFooter, themeClass } from '../../../lib/theme/dispatcher';
+import { resolveStorefrontTenant } from '@/lib/theme/tenant-resolver';
 
 // Header'ların host'tan çözümlenebilmesi için dynamic rendering.
 export const dynamic = 'force-dynamic';
 // Next.js Cache API: tag-based invalidation
-export const revalidate = 300;
+// Tenant teması publish edildiğinde eski tema CDN/Next cache'inden dönmemeli.
+export const revalidate = 0;
 
 interface LayoutProps {
   children: ReactNode;
+  previewToken?: string;
 }
 
-export default async function TenantLayout({ children }: LayoutProps) {
+export default async function TenantLayout({ children, previewToken }: LayoutProps) {
   ensureDefaultAssignment();
 
   const headerStore = await headers();
@@ -42,7 +44,9 @@ export default async function TenantLayout({ children }: LayoutProps) {
 
   const { theme, sdk: _sdk } = await loadTheme({
     ctx: tenantCtx,
-    demoData,
+    demoData: process.env['NODE_ENV'] === 'development' ? demoData : undefined,
+    backendUrl: process.env['NEXT_PUBLIC_STORE_API'],
+    previewToken,
   });
 
   const fontLink = getGoogleFontLink(theme);

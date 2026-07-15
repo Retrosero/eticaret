@@ -5,17 +5,15 @@
  */
 import { Inject, Injectable } from '@nestjs/common';
 import type { Pool } from 'pg';
-import { ApiError, ErrorCode, type Logger } from '@eticart/config';
+import { ApiError, ErrorCode } from '@eticart/config';
 import { AiService, preFlight, validateOutput } from '@eticart/ai';
 
-import { LOGGER_TOKEN } from '../../common/logger.js';
 
 @Injectable()
 export class AiBackendService {
   private service: AiService;
 
   constructor(
-    @Inject(LOGGER_TOKEN) private readonly logger: Logger,
     @Inject('PG_POOL_TOKEN') private readonly pool: Pool,
   ) {
     // Config from env
@@ -49,6 +47,7 @@ export class AiBackendService {
     ticketId: string,
     regenerate = false,
   ): Promise<{ reply: string; sanitizedInput: boolean; warnings: string[] }> {
+    void regenerate;
     // Ticket'ı DB'den al
     const r = await this.pool.query(
       `SELECT subject, description, category FROM public.support_tickets
@@ -248,7 +247,10 @@ export class AiBackendService {
     }
     const product = r.rows[0] as { name: string; description: string | null };
 
-    const result = await this.service.suggestTags(tenantId, product);
+    const result = await this.service.suggestTags(tenantId, {
+      name: product.name,
+      description: product.description ?? undefined,
+    });
     return result;
   }
 

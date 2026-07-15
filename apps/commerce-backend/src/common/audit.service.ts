@@ -42,6 +42,9 @@ export type AuditAction =
   | 'admin.user_deleted'
   | 'admin.role_changed'
   | 'admin.settings_changed'
+  | 'theme.preview'
+  | 'theme.publish'
+  | 'theme.rollback'
   // Veri
   | 'data.export_requested'
   | 'data.export_downloaded'

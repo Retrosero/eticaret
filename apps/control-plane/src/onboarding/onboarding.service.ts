@@ -4,6 +4,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { randomBytes, createHash } from 'node:crypto';
 import { ApiError, ErrorCode, type Logger } from '@eticart/config';
+import { hashPassword } from '@eticart/auth';
 import type { TenantStatus } from '@eticart/shared-types';
 
 import { LOGGER_TOKEN } from '../common/logger.js';
@@ -64,6 +65,10 @@ export class OnboardingService {
         name: input.tenantName,
         primaryDomain: null,
         ownerEmail: input.adminEmail,
+        metadata: {
+          ownerFullName: input.adminFullName,
+          signupSource: 'self_serve',
+        },
         plan: input.planCode as any,
         trialDays: plan.trialDays,
         region: 'eu-west-1',
@@ -79,11 +84,12 @@ export class OnboardingService {
     );
 
     // 4. Admin user oluştur
+    const passwordHash = await hashPassword(input.adminPassword);
     const adminUserId = await this.repo.createTenantUser({
       tenantId: tenant.id,
       email: input.adminEmail,
       fullName: input.adminFullName,
-      passwordHash: this.hashPassword(input.adminPassword),
+      passwordHash,
       role: 'owner',
     });
 
@@ -245,14 +251,6 @@ export class OnboardingService {
   // -------------------------------------------------------------------
   // Dahili
   // -------------------------------------------------------------------
-
-  private hashPassword(password: string): string {
-    const crypto = require('node:crypto');
-    return crypto
-      .createHash('sha256')
-      .update(`eticart:${password}`)
-      .digest('hex');
-  }
 
   private generateToken(): string {
     return randomBytes(32).toString('hex');

@@ -12,6 +12,7 @@ import {
   Settings,
   Truck,
   Tags,
+  Palette,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ReactNode } from 'react';
@@ -20,17 +21,16 @@ interface NavItem {
   label: string;
   href: string;
   icon: ReactNode;
-  /** Sadece belirli roller görür. */
   roles?: string[];
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Genel Bakış', href: '/', icon: <LayoutDashboard className="h-4 w-4" /> },
-  { label: 'Ürünler', href: '/products', icon: <Package className="h-4 w-4" /> },
+  { label: 'Genel Bakis', href: '/', icon: <LayoutDashboard className="h-4 w-4" /> },
+  { label: 'Urunler', href: '/products', icon: <Package className="h-4 w-4" /> },
   { label: 'Kategoriler', href: '/categories', icon: <Tags className="h-4 w-4" /> },
   { label: 'Markalar', href: '/brands', icon: <Tags className="h-4 w-4" /> },
-  { label: 'Siparişler', href: '/orders', icon: <ShoppingCart className="h-4 w-4" /> },
-  { label: 'Müşteriler', href: '/customers', icon: <Users className="h-4 w-4" /> },
+  { label: 'Siparisler', href: '/orders', icon: <ShoppingCart className="h-4 w-4" /> },
+  { label: 'Musteriler', href: '/customers', icon: <Users className="h-4 w-4" /> },
   { label: 'Faturalar', href: '/invoices', icon: <FileText className="h-4 w-4" /> },
   { label: 'Kargo', href: '/shipping', icon: <Truck className="h-4 w-4" /> },
   {
@@ -40,6 +40,7 @@ const NAV_ITEMS: NavItem[] = [
     roles: ['super_admin', 'tenant_admin', 'manager'],
   },
   { label: 'Ayarlar', href: '/settings', icon: <Settings className="h-4 w-4" /> },
+  { label: 'Temalar', href: '/themes', icon: <Palette className="h-4 w-4" />, roles: ['super_admin', 'tenant_admin'] },
 ];
 
 interface SidebarProps {
@@ -58,7 +59,7 @@ export function Sidebar({ role }: SidebarProps) {
   return (
     <aside className="hidden md:flex w-60 flex-col border-r bg-card">
       <div className="flex h-16 items-center gap-2 border-b px-6">
-        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground text-sm font-bold">
+        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
           E
         </div>
         <span className="font-semibold">EtiCart Admin</span>
@@ -83,9 +84,7 @@ export function Sidebar({ role }: SidebarProps) {
           );
         })}
       </nav>
-      <div className="border-t p-4 text-xs text-muted-foreground">
-        v0.1.0 — Faz 10
-      </div>
+      <div className="border-t p-4 text-xs text-muted-foreground">v0.1.0 - Faz 11</div>
     </aside>
   );
 }

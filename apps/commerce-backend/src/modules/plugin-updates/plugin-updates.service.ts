@@ -9,8 +9,8 @@
  */
 import { Inject, Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import type { Pool } from 'pg';
-import { ApiError, ErrorCode, type Logger } from '@eticart/config';
-import { PluginVersionRegistry, type LlmProvider } from '@eticart/plugin-sdk';
+import type { Logger } from '@eticart/config';
+import { PluginVersionRegistry } from '@eticart/plugin-sdk';
 
 import { LOGGER_TOKEN } from '../../common/logger.js';
 
@@ -56,7 +56,7 @@ export class PluginUpdatesService implements OnApplicationBootstrap {
     // Publish initial versions (Trendyol, Hepsiburada, N11)
     try {
       const { manifest: trendyol } = await import('@eticart/marketplace-trendyol');
-      this.registry.publishVersion(trendyol as unknown as Parameters<LlmProvider['name']>[0] extends never ? never : never as never);
+      this.registry.publishVersion(trendyol as never);
     } catch { /* package optional */ }
     this.startDailyCron();
   }

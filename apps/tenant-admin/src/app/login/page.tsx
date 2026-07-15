@@ -87,7 +87,7 @@ export default function LoginPage() {
             </Button>
 
             <p className="text-center text-xs text-muted-foreground">
-              Demo: admin@demo.com / Demo123!
+              Tenant kullaniciniz ile giris yapin.
             </p>
           </form>
         </CardContent>

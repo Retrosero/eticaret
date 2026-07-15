@@ -20,11 +20,16 @@ export function AuthGuard({ children, requireSuperAdmin = false }: AuthGuardProp
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
+    if (isAuthenticated) {
+      setIsReady(true);
+      return;
+    }
+
     (async () => {
       await loadFromStorage();
       setIsReady(true);
     })();
-  }, [loadFromStorage]);
+  }, [isAuthenticated, loadFromStorage]);
 
   useEffect(() => {
     if (!isReady) return;

@@ -9,9 +9,15 @@
 
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Client } from 'pg';
 
-const MIGRATIONS_DIR = resolve(__dirname, '..', '..', 'migrations');
+const MIGRATIONS_DIR = resolve(
+  fileURLToPath(new URL('.', import.meta.url)),
+  '..',
+  '..',
+  'migrations',
+);
 
 interface MigrationRow {
   filename: string;

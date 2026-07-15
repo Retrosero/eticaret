@@ -104,6 +104,23 @@ describe('OnboardingService', () => {
         status: 'draft',
       });
       expect(result.trialEndsAt).toBeDefined();
+      expect(mockTenantsService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ownerEmail: 'admin@test.com',
+          metadata: expect.objectContaining({
+            ownerFullName: 'Test Admin',
+            signupSource: 'self_serve',
+          }),
+        }),
+        null,
+      );
+      expect(mockRepo.createTenantUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: 'admin@test.com',
+          fullName: 'Test Admin',
+          passwordHash: expect.stringContaining('$argon2id$'),
+        }),
+      );
     });
 
     it('mevcut slug için 409 fırlatır', async () => {

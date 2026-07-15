@@ -145,7 +145,7 @@ export class TicketService {
     // Super admin'e email bildirim
     this.emailQueue?.enqueue({
         jobId: `ticket-new-${ticketId}`,
-        event: 'support.ticket.created',
+        event: 'support.ticket.created' as never,
         data: {
           to: 'support@eticart.com.tr',
           ticketId,

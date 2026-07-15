@@ -16,6 +16,50 @@ x-common-env: &common-env
   APP_VERSION: "0.1.0"
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: eticart
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: eticart_control
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres-init.sql:/docker-entrypoint-initdb.d/10-create-app-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eticart -d eticart_control"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eticart
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eticart
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY}
+    volumes:
+      - minio-data:/data
+    networks:
+      - eticart
+
   control-plane:
     image: ${REGISTRY:-ghcr.io}/eticart/control-plane:${TAG:-latest}
     restart: unless-stopped
@@ -48,15 +92,19 @@ services:
     environment:
       <<: *common-env
       DATABASE_URL: postgres://eticart:${DB_PASSWORD}@postgres:5432/eticart_app
+      CONTROL_DATABASE_URL: postgres://eticart:${DB_PASSWORD}@postgres:5432/eticart_control
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET}
       COOKIE_SECRET: ${COOKIE_SECRET}
+      THEME_PREVIEW_SECRET: ${THEME_PREVIEW_SECRET:-${JWT_SECRET}}
+      ETICART_BASE_DOMAIN: ${ETICART_BASE_DOMAIN:-eticart.com.tr}
       STORE_CORS: ${ALLOWED_CORS_ORIGINS}
       ADMIN_CORS: ${ALLOWED_CORS_ORIGINS}
       AUTH_CORS: ${ALLOWED_CORS_ORIGINS}
       S3_ENDPOINT: http://minio:9000
       S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+      S3_PUBLIC_BASE_URL: ${S3_PUBLIC_BASE_URL}
     depends_on:
       postgres:
         condition: service_healthy
@@ -74,7 +122,10 @@ services:
     environment:
       <<: *common-env
       NEXT_PUBLIC_SITE_URL: ${SERVICE_FQDN_STOREFRONT}
-      NEXT_PUBLIC_STORE_API: ${SERVICE_FQDN_MEDUSA}
+      NEXT_PUBLIC_STORE_API: http://commerce-backend:9000
+      CONTROL_DATABASE_URL: ${CONTROL_DATABASE_URL}
+      THEME_PREVIEW_SECRET: ${THEME_PREVIEW_SECRET:-${JWT_SECRET}}
+      ETICART_BASE_DOMAIN: ${ETICART_BASE_DOMAIN:-eticart.com.tr}
     networks:
       - eticart
 
@@ -101,3 +152,8 @@ services:
 networks:
   eticart:
     name: eticart-prod-net
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:

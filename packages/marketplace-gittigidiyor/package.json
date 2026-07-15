@@ -9,7 +9,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@eticart/plugin-sdk": "*"
+    "@eticart/plugin-sdk": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.3.3",

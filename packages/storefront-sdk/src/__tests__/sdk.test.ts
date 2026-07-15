@@ -2,8 +2,9 @@
  * Storefront SDK unit testleri.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
+  HttpStorefrontSdk,
   InMemoryStorefrontSdk,
   type InMemoryStorefrontData,
 } from '../client/index.js';
@@ -173,5 +174,32 @@ describe('storefront-sdk / InMemoryStorefrontSdk', () => {
   it('mevcut ürün detay null döner (InMemoryStorefrontData.productDetails yok)', async () => {
     const detail = await sdk.productDetail({ slug: 'elbise' });
     expect(detail).toBeNull();
+  });
+});
+
+describe('storefront-sdk / tenant transport', () => {
+  it('tenant kimliğini client headerı yerine Host üzerinden taşır', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ items: [], total: 0, page: 1, pageSize: 20, hasMore: false }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+    const http = new HttpStorefrontSdk({
+      tenantId: 'tenant-a',
+      tenantSlug: 'firma-a',
+      primaryDomain: 'firma-a.eticart.com.tr',
+      backendUrl: 'http://commerce-backend:9000',
+      locale: 'tr-TR',
+      currency: 'TRY',
+    });
+
+    await http.listProducts();
+    const [, init] = fetchMock.mock.calls[0]!;
+    const headers = (init as RequestInit).headers as Record<string, string>;
+    expect(headers.Host).toBe('firma-a.eticart.com.tr');
+    expect(headers['X-Tenant-Id']).toBeUndefined();
+    expect(headers['X-Tenant-Slug']).toBeUndefined();
+    fetchMock.mockRestore();
   });
 });

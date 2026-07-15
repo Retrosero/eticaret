@@ -43,17 +43,7 @@ interface DashboardSummary {
   recentOrders: MobileOrder[];
 }
 
-interface PushToken {
-  id: string;
-  tenantId: string;
-  userId: string;
-  token: string;
-  platform: 'ios' | 'android';
-  enabled: boolean;
-  lastUsedAt: string;
-  createdAt: string;
-}
-
+// Push token shape is kept in the persistence layer; the service currently only reads aggregates.
 @Injectable()
 export class MobileService implements OnApplicationBootstrap {
   constructor(

@@ -16,16 +16,13 @@
  */
 import { Inject, Injectable } from '@nestjs/common';
 import type { Pool } from 'pg';
-import { ApiError, ErrorCode, type Logger } from '@eticart/config';
 
-import { LOGGER_TOKEN } from '../../common/logger.js';
 
 export type AnalyticsRange = '24h' | '7d' | '30d' | '90d' | '1y' | 'all';
 
 @Injectable()
 export class AnalyticsService {
   constructor(
-    @Inject(LOGGER_TOKEN) private readonly logger: Logger,
     @Inject('PG_POOL_TOKEN') private readonly pool: Pool,
   ) {}
 

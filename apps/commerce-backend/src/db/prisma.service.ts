@@ -49,3 +49,21 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
 
 /** Modül DI token'ı. */
 export const PRISMA_TOKEN = Symbol.for('@eticart/commerce-backend/PRISMA');
+
+/** Tema/CMS tabloları için control-plane veritabanı istemcisi. */
+export const CONTROL_PRISMA_TOKEN = Symbol.for('@eticart/commerce-backend/CONTROL_PRISMA');
+
+@Injectable()
+export class ControlPrismaService implements OnModuleInit, OnModuleDestroy {
+  public readonly client: PrismaClient;
+
+  constructor() {
+    this.client = new PrismaClient({
+      datasourceUrl: process.env['CONTROL_DATABASE_URL'] ?? process.env['DATABASE_URL'],
+      log: process.env['NODE_ENV'] === 'development' ? ['warn', 'error'] : ['error'],
+    });
+  }
+
+  async onModuleInit(): Promise<void> { await this.client.$connect(); }
+  async onModuleDestroy(): Promise<void> { await this.client.$disconnect(); }
+}

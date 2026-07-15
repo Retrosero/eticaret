@@ -76,7 +76,7 @@ export interface StorefrontSdk {
   brands(): Promise<ReadonlyArray<StorefrontBrand>>;
 
   /** Banner (hero/slider). */
-  banners(placement: 'hero' | 'home-slider' | 'category-banner'): Promise<ReadonlyArray<StorefrontBanner>>;
+  banners(placement: string): Promise<ReadonlyArray<StorefrontBanner>>;
 
   /** Blog yazıları. */
   blogPosts(limit?: number): Promise<ReadonlyArray<StorefrontBlogPost>>;
@@ -105,10 +105,12 @@ export class HttpStorefrontSdk implements StorefrontSdk {
   private get baseHeaders(): Record<string, string> {
     return {
       'Content-Type': 'application/json',
-      'X-Tenant-Id': this.options.tenantId,
-      'X-Tenant-Slug': this.options.tenantSlug,
       'X-Locale': this.options.locale,
       'X-Currency': this.options.currency,
+      // Server-to-server storefront çağrısı tenant domainini Host üzerinden
+      // taşır. Commerce backend tenantı kendi resolver'ı ile doğrular;
+      // client tarafından gönderilen tenant ID header'ına güvenilmez.
+      ...(this.options.primaryDomain ? { Host: this.options.primaryDomain } : {}),
     };
   }
 
