@@ -62,7 +62,7 @@ services:
 
   control-plane:
     build:
-      context: ../..
+      context: .
       dockerfile: apps/control-plane/Dockerfile
     restart: unless-stopped
     environment:
@@ -90,7 +90,7 @@ services:
 
   commerce-backend:
     build:
-      context: ../..
+      context: .
       dockerfile: apps/commerce-backend/Dockerfile
     restart: unless-stopped
     environment:
@@ -122,7 +122,7 @@ services:
 
   storefront:
     build:
-      context: ../..
+      context: .
       dockerfile: apps/storefront/Dockerfile
     restart: unless-stopped
     environment:
@@ -137,7 +137,7 @@ services:
 
   tenant-admin:
     build:
-      context: ../..
+      context: .
       dockerfile: apps/tenant-admin/Dockerfile
     restart: unless-stopped
     environment:
@@ -149,7 +149,7 @@ services:
 
   super-admin:
     build:
-      context: ../..
+      context: .
       dockerfile: apps/super-admin/Dockerfile
     restart: unless-stopped
     environment:
