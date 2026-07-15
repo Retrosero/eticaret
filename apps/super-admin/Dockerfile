@@ -8,9 +8,10 @@ COPY apps ./apps
 RUN pnpm install --filter @eticart/super-admin... --frozen-lockfile || pnpm install --filter @eticart/super-admin...
 
 FROM node:20-alpine AS builder
+RUN corepack enable pnpm && corepack prepare pnpm@9.15.9 --activate
 WORKDIR /repo
 COPY --from=deps /repo ./
-RUN pnpm --filter @eticart/super-admin build
+RUN pnpm --filter @eticart/ui build && pnpm --filter @eticart/super-admin build
 
 FROM node:20-alpine AS runner
 WORKDIR /app
