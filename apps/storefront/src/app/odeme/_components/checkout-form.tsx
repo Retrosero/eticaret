@@ -23,12 +23,12 @@ import {
   Card,
   TrCurrency,
 } from '@eticart/ui';
-import { useCartStore, hydrateCartStore } from '@/lib/cart-store.js';
-import { getApiClient, ApiError } from '@/lib/api-client.js';
-import { checkoutSchema, type CheckoutInput } from '@/lib/checkout-schemas.js';
-import { formatPriceKurus } from '@/lib/format.js';
-import { IyzicoRedirect } from './iyzico-redirect.js';
-import { AddressFormFields } from './address-form-fields.js';
+import { useCartStore, hydrateCartStore } from '@/lib/cart-store';
+import { getApiClient, ApiError } from '@/lib/api-client';
+import { checkoutSchema, type CheckoutInput } from '@/lib/checkout-schemas';
+import { formatPriceKurus } from '@/lib/format';
+import { IyzicoRedirect } from './iyzico-redirect';
+import { AddressFormFields } from './address-form-fields';
 
 interface SavedAddress {
   readonly id: string;

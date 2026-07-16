@@ -17,7 +17,7 @@ import {
   type StateCreator,
 } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { getApiClient } from './api-client.js';
+import { getApiClient } from './api-client';
 
 // ---------------------------------------------------------------------------
 // Tipler

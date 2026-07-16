@@ -10,7 +10,7 @@
 
 import { type UseFormReturn } from 'react-hook-form';
 import { Input } from '@eticart/ui';
-import type { CheckoutInput } from '@/lib/checkout-schemas.js';
+import type { CheckoutInput } from '@/lib/checkout-schemas';
 
 interface Props {
   readonly prefix: 'shippingAddress' | 'billingAddress';

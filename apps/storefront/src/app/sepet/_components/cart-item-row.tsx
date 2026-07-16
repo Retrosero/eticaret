@@ -6,10 +6,10 @@
 
 'use client';
 
-import type { CartItem } from '@/lib/cart-store.js';
-import { useCartStore } from '@/lib/cart-store.js';
+import type { CartItem } from '@/lib/cart-store';
+import { useCartStore } from '@/lib/cart-store';
 import { TrCurrency, Button } from '@eticart/ui';
-import { formatPriceKurus } from '@/lib/format.js';
+import { formatPriceKurus } from '@/lib/format';
 
 interface Props {
   readonly item: CartItem;

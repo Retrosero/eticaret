@@ -79,7 +79,7 @@ export const metadata: Metadata = {
   // App links
   appLinks: {
     ios: { url: '/', app_store_id: '123456789' },
-    android: { package_name: 'com.eticart.app' },
+    android: { package: 'com.eticart.app' },
     web: { url: '/', should_fallback: true },
   },
   // Apple smart app banner

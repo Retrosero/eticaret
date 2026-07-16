@@ -8,7 +8,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Heading } from '@eticart/ui';
-import { CheckoutForm } from './_components/checkout-form.js';
+import { CheckoutForm } from './_components/checkout-form';
 
 export const metadata: Metadata = {
   title: 'Ödeme',

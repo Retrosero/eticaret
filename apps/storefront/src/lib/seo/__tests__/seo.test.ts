@@ -20,8 +20,8 @@ import {
   itemListSchema,
   defaultStaticPages,
   absoluteUrl,
-} from '../index.js';
-import { siteConfig } from '../site-config.js';
+} from '../index';
+import { siteConfig } from '../site-config';
 
 describe('SEO: site-config', () => {
   it('siteConfig URL trailing slash içermez', () => {

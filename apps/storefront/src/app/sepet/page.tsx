@@ -8,8 +8,8 @@
 
 import type { Metadata } from 'next';
 import { Heading } from '@eticart/ui';
-import { CartList } from './_components/cart-list.js';
-import { CartSummary } from './_components/cart-summary.js';
+import { CartList } from './_components/cart-list';
+import { CartSummary } from './_components/cart-summary';
 
 export const metadata: Metadata = {
   title: 'Sepetim',

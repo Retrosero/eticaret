@@ -9,7 +9,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useCartStore } from './cart-store.js';
+import { useCartStore } from './cart-store';
 
 // ---------------------------------------------------------------------------
 // Yaşam döngüsü

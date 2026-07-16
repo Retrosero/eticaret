@@ -18,7 +18,7 @@ import {
   getApiClient,
   getSessionKey,
   setSessionKey,
-} from './api-client.js';
+} from './api-client';
 
 // ---------------------------------------------------------------------------
 // Yardımcılar

@@ -8,7 +8,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Heading, Card, Button } from '@eticart/ui';
-import { formatDateTr } from '@/lib/format.js';
+import { formatDateTr } from '@/lib/format';
 
 export const metadata: Metadata = {
   title: 'Siparişiniz Alındı',

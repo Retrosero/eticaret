@@ -8,9 +8,9 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useCartStore, hydrateCartStore } from '@/lib/cart-store.js';
-import { CartItemRow } from './cart-item-row.js';
-import { EmptyCart } from './empty-cart.js';
+import { useCartStore, hydrateCartStore } from '@/lib/cart-store';
+import { CartItemRow } from './cart-item-row';
+import { EmptyCart } from './empty-cart';
 
 export function CartList(): JSX.Element {
   // İlk mount'ta store'u hidre et (SSR-skipHydration)

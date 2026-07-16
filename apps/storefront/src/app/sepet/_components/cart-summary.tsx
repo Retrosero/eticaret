@@ -8,8 +8,8 @@
 
 import { useRouter } from 'next/navigation';
 import { Button } from '@eticart/ui';
-import { useCartStore } from '@/lib/cart-store.js';
-import { formatPriceKurus } from '@/lib/format.js';
+import { useCartStore } from '@/lib/cart-store';
+import { formatPriceKurus } from '@/lib/format';
 
 export function CartSummary(): JSX.Element {
   const router = useRouter();
