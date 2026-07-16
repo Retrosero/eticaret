@@ -62,10 +62,9 @@ services:
 
   control-plane:
     build:
-      # Bu Compose dosyası infra/coolify altında. Docker build bağlamı ise
-      # monorepo kökü olmalı; aksi halde apps/ ve packages/ Dockerfile COPY
-      # komutları Coolify derlemesinde bulunamaz.
-      context: ../..
+      # Coolify compose'u depo kökünü project directory olarak kullanarak
+      # çalıştırır; bu nedenle build bağlamı monorepo köküdür.
+      context: .
       dockerfile: apps/control-plane/Dockerfile
     restart: unless-stopped
     environment:
@@ -93,7 +92,7 @@ services:
 
   commerce-backend:
     build:
-      context: ../..
+      context: .
       dockerfile: apps/commerce-backend/Dockerfile
     restart: unless-stopped
     environment:
@@ -125,7 +124,7 @@ services:
 
   storefront:
     build:
-      context: ../..
+      context: .
       dockerfile: apps/storefront/Dockerfile
     restart: unless-stopped
     environment:
@@ -140,7 +139,7 @@ services:
 
   tenant-admin:
     build:
-      context: ../..
+      context: .
       dockerfile: apps/tenant-admin/Dockerfile
     restart: unless-stopped
     environment:
@@ -152,7 +151,7 @@ services:
 
   super-admin:
     build:
-      context: ../..
+      context: .
       dockerfile: apps/super-admin/Dockerfile
     restart: unless-stopped
     environment:
