@@ -23,6 +23,8 @@
     "@eticart/auth": "workspace:*",
     "@eticart/config": "workspace:*",
     "@eticart/observability": "workspace:*",
+    "@eticart/notification-adapters": "workspace:*",
+    "@eticart/region-router": "workspace:*",
     "@eticart/shared-types": "workspace:*",
     "@eticart/tenant-context": "workspace:*",
     "@eticart/validation": "workspace:*",

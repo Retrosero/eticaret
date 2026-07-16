@@ -16,20 +16,19 @@ COPY apps ./apps
 
 RUN pnpm install --filter @eticart/control-plane... --frozen-lockfile || pnpm install --filter @eticart/control-plane...
 
-RUN pnpm --filter @eticart/control-plane build
+# Workspace paketleri derlenmeden uygulama derlenemez; Turbo bağımlılık
+# grafiğini (^) izleyerek gerekli dist çıktıları önce üretir.
+RUN pnpm turbo run build --filter=@eticart/control-plane
 
 # 2) Çalışma
 FROM node:20-alpine AS runner
-WORKDIR /app
+WORKDIR /repo/apps/control-plane
 
 ENV NODE_ENV=production
 ENV PORT=4000
 
 # Sadece çalışma için gereken dosyaları al
-COPY --from=builder /repo/apps/control-plane/dist ./dist
-COPY --from=builder /repo/apps/control-plane/package.json ./
-COPY --from=builder /repo/apps/control-plane/node_modules ./node_modules
-COPY --from=builder /repo/node_modules /repo_node_modules 2>/dev/null || true
+COPY --from=builder /repo /repo
 
 # Güvenlik: root olmayan kullanıcı
 RUN addgroup -g 1001 app && adduser -S -u 1001 -G app app

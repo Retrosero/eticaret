@@ -9,6 +9,8 @@
 
 import { z } from 'zod';
 
+export { baseEnvSchema, type BaseEnv } from './base-schema.js';
+
 /** Zod ile türetilmiş şema. */
 export type EnvSchema<T extends z.ZodTypeAny> = T;
 

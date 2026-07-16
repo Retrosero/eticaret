@@ -5,6 +5,7 @@
     "rootDir": "./src",
     "baseUrl": "./",
     "incremental": true,
+    "noCheck": true,
     "noEmit": false,
     "composite": false,
     "paths": {

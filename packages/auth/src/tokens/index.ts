@@ -13,7 +13,6 @@
  */
 
 import type { Uuid } from '@eticart/shared-types';
-import { errors as joseErrors } from 'jose';
 import {
   signAccessToken,
   signRefreshToken,

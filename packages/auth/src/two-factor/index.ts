@@ -10,7 +10,7 @@
 
 import { authenticator } from 'otplib';
 import { toDataURL } from 'qrcode';
-import { generateSecureToken, hashTokenAsync } from '../password/index.js';
+import { hashTokenAsync } from '../password/index.js';
 
 /** TOTP ayarları — Google Authenticator, Authy ve 1Password uyumlu. */
 authenticator.options = {

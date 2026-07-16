@@ -12,7 +12,6 @@ import { HealthModule } from './health/health.module.js';
 import { TenantsModule } from './tenants/tenants.module.js';
 import { OnboardingModule } from './onboarding/onboarding.module.js';
 import { SuperAdminModule } from './super-admin/super-admin.module.js';
-import { SuperAdminSupportModule } from './support/support.module.js';
 import { AdminModule } from './admin/admin.module.js';
 import { RegionModule } from './region/region.module.js';
 import { AnalyticsModule } from './analytics/analytics.module.js';
@@ -29,7 +28,6 @@ import { ConfigRootModule } from './config/config.module.js';
     PlansModule,
     OnboardingModule,
     SuperAdminModule,
-    SuperAdminSupportModule,
     AdminModule,
     RegionModule,
     AnalyticsModule,

@@ -83,7 +83,7 @@ export async function signAccessToken(
     .setIssuer(opts.issuer ?? DEFAULT_ISSUER)
     .setAudience(opts.audience ?? DEFAULT_ISSUER)
     .setExpirationTime(`${opts.expiresInSeconds}s`)
-    .setSubject(payload.sub)
+    .setSubject(String(payload.sub))
     .sign(toSecretKey(secret));
 }
 
@@ -131,7 +131,7 @@ export async function signRefreshToken(
     .setIssuer(DEFAULT_ISSUER)
     .setAudience('refresh')
     .setExpirationTime(`${expiresInSeconds}s`)
-    .setSubject(payload.sub)
+    .setSubject(String(payload.sub))
     .setJti(jti)
     .sign(toSecretKey(secret));
 }
