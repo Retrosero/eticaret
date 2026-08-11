@@ -76,14 +76,16 @@ services:
       redis:
         condition: service_healthy
     environment:
-      NODE_ENV: production
+      NODE_ENV: ${NODE_ENV:-production}
       PORT: 9000
       DATABASE_URL: postgresql://eticart:${POSTGRES_PASSWORD:-eticart_change_me_in_production}@postgres:5432/eticart
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET zorunludur}
-      COOKIE_SECRET: ${COOKIE_SECRET:?COOKIE_SECRET zorunludur}
+      JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_change_in_production}
+      COOKIE_SECRET: ${COOKIE_SECRET:-dev_cookie_secret_change_in_production}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       APP_VERSION: ${APP_VERSION:-0.9.0}
+      ETICART_BASE_DOMAIN: localhost
+      DEV_DEFAULT_TENANT_SLUG: ${DEV_DEFAULT_TENANT_SLUG:-demo}
 
       # CORS
       STORE_CORS: ${STORE_CORS:-https://eticart.com.tr}
@@ -139,7 +141,7 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://eticart:${POSTGRES_PASSWORD:-eticart_change_me_in_production}@postgres:5432/eticart
-    entrypoint: ["node", "dist/scripts/migrate-deploy.js"]
+    entrypoint: ["pnpm", "--filter", "@eticart/commerce-backend", "prisma", "migrate", "deploy"]
     restart: "no"  # bir kere çalışır
     networks:
       - eticart-net
@@ -157,11 +159,16 @@ services:
       backend:
         condition: service_healthy
     environment:
-      NODE_ENV: production
+      NODE_ENV: ${NODE_ENV:-production}
       PORT: 3000
+      DATABASE_URL: postgresql://eticart:${POSTGRES_PASSWORD:-eticart_change_me_in_production}@eticart-postgres:5432/eticart
+      CONTROL_DATABASE_URL: postgresql://eticart:${POSTGRES_PASSWORD:-eticart_change_me_in_production}@eticart-postgres:5432/eticart
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://backend:9000}
-      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://eticart.com.tr}
+      NEXT_PUBLIC_STORE_API: ${NEXT_PUBLIC_STORE_API:-http://backend:9000}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost}
       NEXT_TELEMETRY_DISABLED: 1
+      ETICART_BASE_DOMAIN: localhost
+      STOREFRONT_DEFAULT_TENANT_SLUG: ${STOREFRONT_DEFAULT_TENANT_SLUG:-demo}
     ports:
       - "${STOREFRONT_PORT:-3000}:3000"
     healthcheck:
@@ -235,6 +242,8 @@ volumes:
     name: eticart-postgres-data
   redis-data:
     name: eticart-redis-data
+  minio-data:
+    name: eticart-minio-data
 
 # =============================================================
 # Networks
